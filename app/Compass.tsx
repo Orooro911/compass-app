@@ -19,7 +19,7 @@ function shortestPathAngle(currentDeg: number, targetDeg: number): number {
   return currentDeg + delta;
 }
 
-// Content for each role's lightbox — edit these to add your copy
+// Content for each role's lightbox (opened by the "i" icon next to the role label)
 const ROLE_LIGHTBOX: Record<Role, { title: string; body: ReactNode }> = {
   Achiever: { title: "Achiever", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add more information about the Achiever role here.</p> },
   Leader:   { title: "Leader",   body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add more information about the Leader role here.</p> },
@@ -27,9 +27,63 @@ const ROLE_LIGHTBOX: Record<Role, { title: string; body: ReactNode }> = {
   Partner:  { title: "Partner",  body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add more information about the Partner role here.</p> },
 };
 
+// Content for each principle chip (P1–P9) per role — key: "Role-P1" etc. (opened by clicking P1, P2, … in a pyramid)
+const PRINCIPLE_LIGHTBOX: Record<string, { title: string; body: ReactNode }> = {
+  "Achiever-P1": { title: "P1 — Achiever", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P1 (Achiever) here.</p> },
+  "Achiever-P2": { title: "P2 — Achiever", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P2 (Achiever) here.</p> },
+  "Achiever-P3": { title: "P3 — Achiever", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P3 (Achiever) here.</p> },
+  "Achiever-P4": { title: "P4 — Achiever", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P4 (Achiever) here.</p> },
+  "Achiever-P5": { title: "P5 — Achiever", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P5 (Achiever) here.</p> },
+  "Achiever-P6": { title: "P6 — Achiever", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P6 (Achiever) here.</p> },
+  "Achiever-P7": { title: "P7 — Achiever", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P7 (Achiever) here.</p> },
+  "Achiever-P8": { title: "P8 — Achiever", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P8 (Achiever) here.</p> },
+  "Achiever-P9": { title: "P9 — Achiever", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P9 (Achiever) here.</p> },
+  "Leader-P1": { title: "P1 — Leader", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P1 (Leader) here.</p> },
+  "Leader-P2": { title: "P2 — Leader", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P2 (Leader) here.</p> },
+  "Leader-P3": { title: "P3 — Leader", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P3 (Leader) here.</p> },
+  "Leader-P4": { title: "P4 — Leader", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P4 (Leader) here.</p> },
+  "Leader-P5": { title: "P5 — Leader", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P5 (Leader) here.</p> },
+  "Leader-P6": { title: "P6 — Leader", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P6 (Leader) here.</p> },
+  "Leader-P7": { title: "P7 — Leader", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P7 (Leader) here.</p> },
+  "Leader-P8": { title: "P8 — Leader", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P8 (Leader) here.</p> },
+  "Leader-P9": { title: "P9 — Leader", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P9 (Leader) here.</p> },
+  "Follower-P1": { title: "P1 — Follower", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P1 (Follower) here.</p> },
+  "Follower-P2": { title: "P2 — Follower", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P2 (Follower) here.</p> },
+  "Follower-P3": { title: "P3 — Follower", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P3 (Follower) here.</p> },
+  "Follower-P4": { title: "P4 — Follower", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P4 (Follower) here.</p> },
+  "Follower-P5": { title: "P5 — Follower", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P5 (Follower) here.</p> },
+  "Follower-P6": { title: "P6 — Follower", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P6 (Follower) here.</p> },
+  "Follower-P7": { title: "P7 — Follower", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P7 (Follower) here.</p> },
+  "Follower-P8": { title: "P8 — Follower", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P8 (Follower) here.</p> },
+  "Follower-P9": { title: "P9 — Follower", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P9 (Follower) here.</p> },
+  "Partner-P1": { title: "P1 — Partner", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P1 (Partner) here.</p> },
+  "Partner-P2": { title: "P2 — Partner", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P2 (Partner) here.</p> },
+  "Partner-P3": { title: "P3 — Partner", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P3 (Partner) here.</p> },
+  "Partner-P4": { title: "P4 — Partner", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P4 (Partner) here.</p> },
+  "Partner-P5": { title: "P5 — Partner", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P5 (Partner) here.</p> },
+  "Partner-P6": { title: "P6 — Partner", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P6 (Partner) here.</p> },
+  "Partner-P7": { title: "P7 — Partner", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P7 (Partner) here.</p> },
+  "Partner-P8": { title: "P8 — Partner", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P8 (Partner) here.</p> },
+  "Partner-P9": { title: "P9 — Partner", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for P9 (Partner) here.</p> },
+};
+function getPrincipleLightbox(role: Role, principle: string) {
+  const key = `${role}-${principle}`;
+  return PRINCIPLE_LIGHTBOX[key] ?? { title: `${principle} — ${role}`, body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for {principle} ({role}) here.</p> };
+}
+
 export default function Compass() {
   const [rotation, setRotation] = useState(0);
   const [lightboxRole, setLightboxRole] = useState<Role | null>(null);
+  const [lightboxPrinciple, setLightboxPrinciple] = useState<{ role: Role; principle: string } | null>(null);
+
+  const openRoleLightbox = (role: Role) => {
+    setLightboxPrinciple(null);
+    setLightboxRole(role);
+  };
+  const openPrincipleLightbox = (role: Role, principle: string) => {
+    setLightboxRole(null);
+    setLightboxPrinciple({ role, principle });
+  };
 
   const handleRoleClick = (role: Role) => {
     const targetAngle = ROLE_ANGLE[role];
@@ -135,19 +189,19 @@ export default function Compass() {
               <>
                 <g onClick={() => handleRoleClick("Achiever")} style={{ cursor: "pointer" }}>
                   <text x="0" y="-185" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">Achiever</text>
-                  {topAngle === 0 && <InfoIcon x={30} y={-192} onClick={() => setLightboxRole("Achiever")} />}
+                  {topAngle === 0 && <InfoIcon x={30} y={-192} onClick={() => openRoleLightbox("Achiever")} />}
                 </g>
                 <g transform="rotate(90, 185, 0)" onClick={() => handleRoleClick("Leader")} style={{ cursor: "pointer" }}>
                   <text x="185" y="0" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">Leader</text>
-                  {topAngle === 270 && <InfoIcon x={215} y={-7} onClick={() => setLightboxRole("Leader")} />}
+                  {topAngle === 270 && <InfoIcon x={215} y={-7} onClick={() => openRoleLightbox("Leader")} />}
                 </g>
                 <g transform="rotate(180, 0, 193)" onClick={() => handleRoleClick("Follower")} style={{ cursor: "pointer" }}>
                   <text x="0" y="193" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">Follower</text>
-                  {topAngle === 180 && <InfoIcon x={30} y={186} onClick={() => setLightboxRole("Follower")} />}
+                  {topAngle === 180 && <InfoIcon x={30} y={186} onClick={() => openRoleLightbox("Follower")} />}
                 </g>
                 <g transform="rotate(-90, -185, 0)" onClick={() => handleRoleClick("Partner")} style={{ cursor: "pointer" }}>
                   <text x="-185" y="0" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">Partner</text>
-                  {topAngle === 90 && <InfoIcon x={-155} y={-7} onClick={() => setLightboxRole("Partner")} />}
+                  {topAngle === 90 && <InfoIcon x={-155} y={-7} onClick={() => openRoleLightbox("Partner")} />}
                 </g>
               </>
             );
@@ -200,15 +254,15 @@ export default function Compass() {
           <LevelLine y={-132} />
 
           {/* North principle chips — P1 opens lightbox */}
-          <PrincipleChip x={-26} y={-59} label="P1" onClick={() => setLightboxRole("Achiever")} />
-          <PrincipleChip x={0} y={-59} label="P2" />
-          <PrincipleChip x={26} y={-59} label="P3" />
-          <PrincipleChip x={-14} y={-80} label="P4" />
-          <PrincipleChip x={14} y={-80} label="P5" />
-          <PrincipleChip x={-10} y={-101} label="P6" />
-          <PrincipleChip x={10} y={-101} label="P7" />
-          <PrincipleChip x={0} y={-122} label="P8" />
-          <PrincipleChip x={0} y={-143} label="P9" />
+          <PrincipleChip x={-26} y={-59} label="P1" onClick={() => openPrincipleLightbox("Achiever", "P1")} />
+          <PrincipleChip x={0} y={-59} label="P2" onClick={() => openPrincipleLightbox("Achiever", "P2")} />
+          <PrincipleChip x={26} y={-59} label="P3" onClick={() => openPrincipleLightbox("Achiever", "P3")} />
+          <PrincipleChip x={-14} y={-80} label="P4" onClick={() => openPrincipleLightbox("Achiever", "P4")} />
+          <PrincipleChip x={14} y={-80} label="P5" onClick={() => openPrincipleLightbox("Achiever", "P5")} />
+          <PrincipleChip x={-10} y={-101} label="P6" onClick={() => openPrincipleLightbox("Achiever", "P6")} />
+          <PrincipleChip x={10} y={-101} label="P7" onClick={() => openPrincipleLightbox("Achiever", "P7")} />
+          <PrincipleChip x={0} y={-122} label="P8" onClick={() => openPrincipleLightbox("Achiever", "P8")} />
+          <PrincipleChip x={0} y={-143} label="P9" onClick={() => openPrincipleLightbox("Achiever", "P9")} />
 
           {/* East (Leader) triangle: same levels and chip layout, rotated 90° */}
           <EastLevelLine x={69} />
@@ -217,99 +271,99 @@ export default function Compass() {
           <EastLevelLine x={132} />
 
           <g transform="rotate(90, 59, -26)">
-            <PrincipleChip x={59} y={-26} label="P1" />
+            <PrincipleChip x={59} y={-26} label="P1" onClick={() => openPrincipleLightbox("Leader", "P1")} />
           </g>
           <g transform="rotate(90, 59, 0)">
-            <PrincipleChip x={59} y={0} label="P2" />
+            <PrincipleChip x={59} y={0} label="P2" onClick={() => openPrincipleLightbox("Leader", "P2")} />
           </g>
           <g transform="rotate(90, 59, 26)">
-            <PrincipleChip x={59} y={26} label="P3" />
+            <PrincipleChip x={59} y={26} label="P3" onClick={() => openPrincipleLightbox("Leader", "P3")} />
           </g>
           <g transform="rotate(90, 80, -14)">
-            <PrincipleChip x={80} y={-14} label="P4" />
+            <PrincipleChip x={80} y={-14} label="P4" onClick={() => openPrincipleLightbox("Leader", "P4")} />
           </g>
           <g transform="rotate(90, 80, 14)">
-            <PrincipleChip x={80} y={14} label="P5" />
+            <PrincipleChip x={80} y={14} label="P5" onClick={() => openPrincipleLightbox("Leader", "P5")} />
           </g>
           <g transform="rotate(90, 101, -10)">
-            <PrincipleChip x={101} y={-10} label="P6" />
+            <PrincipleChip x={101} y={-10} label="P6" onClick={() => openPrincipleLightbox("Leader", "P6")} />
           </g>
           <g transform="rotate(90, 101, 10)">
-            <PrincipleChip x={101} y={10} label="P7" />
+            <PrincipleChip x={101} y={10} label="P7" onClick={() => openPrincipleLightbox("Leader", "P7")} />
           </g>
           <g transform="rotate(90, 122, 0)">
-            <PrincipleChip x={122} y={0} label="P8" />
+            <PrincipleChip x={122} y={0} label="P8" onClick={() => openPrincipleLightbox("Leader", "P8")} />
           </g>
           <g transform="rotate(90, 143, 0)">
-            <PrincipleChip x={143} y={0} label="P9" />
+            <PrincipleChip x={143} y={0} label="P9" onClick={() => openPrincipleLightbox("Leader", "P9")} />
           </g>
 
-          {/* South (Follower) triangle: same levels and chip layout, rotated 180° */}
+          {/* South (Follower) triangle: chip order flipped so after 180° rotation labels read left-to-right */}
           <SouthLevelLine y={69} />
           <SouthLevelLine y={90} />
           <SouthLevelLine y={111} />
           <SouthLevelLine y={132} />
 
-          <g transform="rotate(180, -26, 59)">
-            <PrincipleChip x={-26} y={59} label="P1" />
+          <g transform="rotate(180, 26, 59)">
+            <PrincipleChip x={26} y={59} label="P1" onClick={() => openPrincipleLightbox("Follower", "P1")} />
           </g>
           <g transform="rotate(180, 0, 59)">
-            <PrincipleChip x={0} y={59} label="P2" />
+            <PrincipleChip x={0} y={59} label="P2" onClick={() => openPrincipleLightbox("Follower", "P2")} />
           </g>
-          <g transform="rotate(180, 26, 59)">
-            <PrincipleChip x={26} y={59} label="P3" />
-          </g>
-          <g transform="rotate(180, -14, 80)">
-            <PrincipleChip x={-14} y={80} label="P4" />
+          <g transform="rotate(180, -26, 59)">
+            <PrincipleChip x={-26} y={59} label="P3" onClick={() => openPrincipleLightbox("Follower", "P3")} />
           </g>
           <g transform="rotate(180, 14, 80)">
-            <PrincipleChip x={14} y={80} label="P5" />
+            <PrincipleChip x={14} y={80} label="P4" onClick={() => openPrincipleLightbox("Follower", "P4")} />
           </g>
-          <g transform="rotate(180, -10, 101)">
-            <PrincipleChip x={-10} y={101} label="P6" />
+          <g transform="rotate(180, -14, 80)">
+            <PrincipleChip x={-14} y={80} label="P5" onClick={() => openPrincipleLightbox("Follower", "P5")} />
           </g>
           <g transform="rotate(180, 10, 101)">
-            <PrincipleChip x={10} y={101} label="P7" />
+            <PrincipleChip x={10} y={101} label="P6" onClick={() => openPrincipleLightbox("Follower", "P6")} />
+          </g>
+          <g transform="rotate(180, -10, 101)">
+            <PrincipleChip x={-10} y={101} label="P7" onClick={() => openPrincipleLightbox("Follower", "P7")} />
           </g>
           <g transform="rotate(180, 0, 122)">
-            <PrincipleChip x={0} y={122} label="P8" />
+            <PrincipleChip x={0} y={122} label="P8" onClick={() => openPrincipleLightbox("Follower", "P8")} />
           </g>
           <g transform="rotate(180, 0, 143)">
-            <PrincipleChip x={0} y={143} label="P9" />
+            <PrincipleChip x={0} y={143} label="P9" onClick={() => openPrincipleLightbox("Follower", "P9")} />
           </g>
 
-          {/* West (Partner) triangle: same levels and chip layout, rotated 270° (-90°) */}
+          {/* West (Partner) triangle: chip order flipped so after -90° rotation labels read left-to-right */}
           <WestLevelLine x={-69} />
           <WestLevelLine x={-90} />
           <WestLevelLine x={-111} />
           <WestLevelLine x={-132} />
 
-          <g transform="rotate(-90, -59, -26)">
-            <PrincipleChip x={-59} y={-26} label="P1" />
+          <g transform="rotate(-90, -59, 26)">
+            <PrincipleChip x={-59} y={26} label="P1" onClick={() => openPrincipleLightbox("Partner", "P1")} />
           </g>
           <g transform="rotate(-90, -59, 0)">
-            <PrincipleChip x={-59} y={0} label="P2" />
+            <PrincipleChip x={-59} y={0} label="P2" onClick={() => openPrincipleLightbox("Partner", "P2")} />
           </g>
-          <g transform="rotate(-90, -59, 26)">
-            <PrincipleChip x={-59} y={26} label="P3" />
-          </g>
-          <g transform="rotate(-90, -80, -14)">
-            <PrincipleChip x={-80} y={-14} label="P4" />
+          <g transform="rotate(-90, -59, -26)">
+            <PrincipleChip x={-59} y={-26} label="P3" onClick={() => openPrincipleLightbox("Partner", "P3")} />
           </g>
           <g transform="rotate(-90, -80, 14)">
-            <PrincipleChip x={-80} y={14} label="P5" />
+            <PrincipleChip x={-80} y={14} label="P4" onClick={() => openPrincipleLightbox("Partner", "P4")} />
           </g>
-          <g transform="rotate(-90, -101, -10)">
-            <PrincipleChip x={-101} y={-10} label="P6" />
+          <g transform="rotate(-90, -80, -14)">
+            <PrincipleChip x={-80} y={-14} label="P5" onClick={() => openPrincipleLightbox("Partner", "P5")} />
           </g>
           <g transform="rotate(-90, -101, 10)">
-            <PrincipleChip x={-101} y={10} label="P7" />
+            <PrincipleChip x={-101} y={10} label="P6" onClick={() => openPrincipleLightbox("Partner", "P6")} />
+          </g>
+          <g transform="rotate(-90, -101, -10)">
+            <PrincipleChip x={-101} y={-10} label="P7" onClick={() => openPrincipleLightbox("Partner", "P7")} />
           </g>
           <g transform="rotate(-90, -122, 0)">
-            <PrincipleChip x={-122} y={0} label="P8" />
+            <PrincipleChip x={-122} y={0} label="P8" onClick={() => openPrincipleLightbox("Partner", "P8")} />
           </g>
           <g transform="rotate(-90, -143, 0)">
-            <PrincipleChip x={-143} y={0} label="P9" />
+            <PrincipleChip x={-143} y={0} label="P9" onClick={() => openPrincipleLightbox("Partner", "P9")} />
           </g>
 
         </g>
@@ -341,6 +395,17 @@ export default function Compass() {
         </div>
       </Lightbox>
     )}
+
+    {lightboxPrinciple && (() => {
+      const { title, body } = getPrincipleLightbox(lightboxPrinciple.role, lightboxPrinciple.principle);
+      return (
+        <Lightbox title={title} onClose={() => setLightboxPrinciple(null)}>
+          <div style={{ padding: "1rem 0", minHeight: 120, color: "rgba(255,255,255,0.9)" }}>
+            {body}
+          </div>
+        </Lightbox>
+      );
+    })()}
     </>
   );
 }
