@@ -108,9 +108,10 @@ export default function Compass() {
           <defs>
             <path id="iterate-arc" d="M 75 -106 A 132 132 0 0 1 106 -75" fill="none" />
             <path id="adjust-arc" d="M 90 -124 A 155 155 0 0 1 124 -90" fill="none" />
-            {/* Partner–Follower: Adjust on inner arc (inside), Iterate on outer arc (outside), both facing center */}
+            {/* Partner–Follower: Adjust on inner arc (132), Iterate on outer arc (175) so Iterate is further toward corner; same angular span, spacing preserved */}
             <path id="iterate-arc-pf" d="M -106 75 A 132 132 0 0 1 -75 106" fill="none" />
             <path id="adjust-arc-pf" d="M -124 90 A 155 155 0 0 1 -90 124" fill="none" />
+            <path id="iterate-arc-pf-outer" d="M -124 90 A 155 155 0 0 1 -90 124" fill="none" />
           </defs>
           <text fill="rgba(255,255,255,0.85)" fontSize="9" fontWeight="400">
             <textPath href="#adjust-arc" startOffset="50%" textAnchor="middle">
@@ -122,15 +123,15 @@ export default function Compass() {
               Adjust
             </textPath>
           </text>
-          {/* Partner–Follower: Iterate and Adjust, rotated 180° so base of letters faces center */}
-          <g transform="rotate(180, -90, 90)">
+          {/* Partner–Follower: 180° around each label’s position on path so text faces center, stays in place */}
+          <g transform="rotate(180, -107, 107)">
             <text fill="rgba(255,255,255,0.85)" fontSize="9" fontWeight="400">
-              <textPath href="#adjust-arc-pf" startOffset="50%" textAnchor="middle">
+              <textPath href="#iterate-arc-pf-outer" startOffset="50%" textAnchor="middle">
                 Iterate
               </textPath>
             </text>
           </g>
-          <g transform="rotate(180, -90, 90)">
+          <g transform="rotate(180, -90.5, 90.5)">
             <text fill="rgba(255,255,255,0.85)" fontSize="9" fontWeight="400">
               <textPath href="#iterate-arc-pf" startOffset="50%" textAnchor="middle">
                 Adjust
