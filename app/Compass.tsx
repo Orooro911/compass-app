@@ -19,9 +19,17 @@ function shortestPathAngle(currentDeg: number, targetDeg: number): number {
   return currentDeg + delta;
 }
 
+// Content for each role's lightbox — edit these to add your copy
+const ROLE_LIGHTBOX: Record<Role, { title: string; body: ReactNode }> = {
+  Achiever: { title: "Achiever", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add more information about the Achiever role here.</p> },
+  Leader:   { title: "Leader",   body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add more information about the Leader role here.</p> },
+  Follower: { title: "Follower", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add more information about the Follower role here.</p> },
+  Partner:  { title: "Partner",  body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add more information about the Partner role here.</p> },
+};
+
 export default function Compass() {
   const [rotation, setRotation] = useState(0);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxRole, setLightboxRole] = useState<Role | null>(null);
 
   const handleRoleClick = (role: Role) => {
     const targetAngle = ROLE_ANGLE[role];
@@ -120,19 +128,30 @@ export default function Compass() {
             <path id="pursue-passions-arc-ap" d="M -106 -75 A 132 132 0 0 1 -75 -106" fill="none" pathLength="280" />
             <path id="pursue-passions-arc-lf" d="M 106 75 A 132 132 0 0 1 75 106" fill="none" pathLength="280" />
           </defs>
-          {/* Role labels drawn first so arc labels (Iterate, Adjust, Variety, Pursuit) render on top */}
-          <g onClick={() => handleRoleClick("Achiever")} style={{ cursor: "pointer" }}>
-            <text x="0" y="-185" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">Achiever</text>
-          </g>
-          <g transform="rotate(90, 185, 0)" onClick={() => handleRoleClick("Leader")} style={{ cursor: "pointer" }}>
-            <text x="185" y="0" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">Leader</text>
-          </g>
-          <g transform="rotate(180, 0, 193)" onClick={() => handleRoleClick("Follower")} style={{ cursor: "pointer" }}>
-            <text x="0" y="193" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">Follower</text>
-          </g>
-          <g transform="rotate(-90, -185, 0)" onClick={() => handleRoleClick("Partner")} style={{ cursor: "pointer" }}>
-            <text x="-185" y="0" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">Partner</text>
-          </g>
+          {/* Role labels; "i" icon only when that role is in the top position (normalize rotation for 270 vs -90 etc.) */}
+          {(() => {
+            const topAngle = ((rotation % 360) + 360) % 360; // 0–360 so 270 and -90 both mean Leader at top
+            return (
+              <>
+                <g onClick={() => handleRoleClick("Achiever")} style={{ cursor: "pointer" }}>
+                  <text x="0" y="-185" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">Achiever</text>
+                  {topAngle === 0 && <InfoIcon x={30} y={-192} onClick={() => setLightboxRole("Achiever")} />}
+                </g>
+                <g transform="rotate(90, 185, 0)" onClick={() => handleRoleClick("Leader")} style={{ cursor: "pointer" }}>
+                  <text x="185" y="0" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">Leader</text>
+                  {topAngle === 270 && <InfoIcon x={215} y={-7} onClick={() => setLightboxRole("Leader")} />}
+                </g>
+                <g transform="rotate(180, 0, 193)" onClick={() => handleRoleClick("Follower")} style={{ cursor: "pointer" }}>
+                  <text x="0" y="193" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">Follower</text>
+                  {topAngle === 180 && <InfoIcon x={30} y={186} onClick={() => setLightboxRole("Follower")} />}
+                </g>
+                <g transform="rotate(-90, -185, 0)" onClick={() => handleRoleClick("Partner")} style={{ cursor: "pointer" }}>
+                  <text x="-185" y="0" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">Partner</text>
+                  {topAngle === 90 && <InfoIcon x={-155} y={-7} onClick={() => setLightboxRole("Partner")} />}
+                </g>
+              </>
+            );
+          })()}
           <text fill="rgba(255,255,255,0.85)" fontSize="9" fontWeight="400">
             <textPath href="#adjust-arc" startOffset="50%" textAnchor="middle">
               Iterate
@@ -181,7 +200,7 @@ export default function Compass() {
           <LevelLine y={-132} />
 
           {/* North principle chips — P1 opens lightbox */}
-          <PrincipleChip x={-26} y={-59} label="P1" onClick={() => setLightboxOpen(true)} />
+          <PrincipleChip x={-26} y={-59} label="P1" onClick={() => setLightboxRole("Achiever")} />
           <PrincipleChip x={0} y={-59} label="P2" />
           <PrincipleChip x={26} y={-59} label="P3" />
           <PrincipleChip x={-14} y={-80} label="P4" />
@@ -312,10 +331,13 @@ export default function Compass() {
       </svg>
     </div>
 
-    {lightboxOpen && (
-      <Lightbox title="P1 — Achiever" onClose={() => setLightboxOpen(false)}>
+    {lightboxRole && (
+      <Lightbox
+        title={ROLE_LIGHTBOX[lightboxRole].title}
+        onClose={() => setLightboxRole(null)}
+      >
         <div style={{ padding: "1rem 0", minHeight: 120, color: "rgba(255,255,255,0.9)" }}>
-          Add your content here.
+          {ROLE_LIGHTBOX[lightboxRole].body}
         </div>
       </Lightbox>
     )}
@@ -479,6 +501,26 @@ function Lightbox({
         <div style={{ padding: "20px 20px 24px" }}>{children}</div>
       </div>
     </div>
+  );
+}
+
+// Reusable "more info" icon: white circle, black "i" — use throughout the app for info actions
+function InfoIcon({ x, y, onClick }: { x: number; y: number; onClick?: (e: React.MouseEvent) => void }) {
+  const r = 4.2; // 60% of 7
+  return (
+    <g
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.(e);
+      }}
+      style={{ cursor: "pointer" }}
+      aria-label="More information"
+    >
+      <circle cx={x} cy={y} r={r} fill="white" stroke="rgba(255,255,255,0.4)" strokeWidth={0.5} />
+      <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fill="#111" fontSize="6" fontWeight="700">
+        i
+      </text>
+    </g>
   );
 }
 
