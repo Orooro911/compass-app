@@ -81,6 +81,9 @@ export default function Compass() {
     setLightboxRole(role);
   };
   const openPrincipleLightbox = (role: Role, principle: string) => {
+    // Rotate so this Compass Role moves to the top (same as clicking the role label), then open the principle lightbox
+    const targetAngle = ROLE_ANGLE[role];
+    setRotation((current) => shortestPathAngle(current, targetAngle));
     setLightboxRole(null);
     setLightboxPrinciple({ role, principle });
   };
