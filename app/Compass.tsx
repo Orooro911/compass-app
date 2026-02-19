@@ -49,6 +49,7 @@ export default function Compass() {
           width: "100%",
           height: "100%",
           display: "block",
+          overflow: "visible",
         }}
       >
         {/* Rotate everything as a group */}
@@ -112,7 +113,26 @@ export default function Compass() {
             <path id="iterate-arc-pf" d="M -106 75 A 132 132 0 0 1 -75 106" fill="none" />
             <path id="adjust-arc-pf" d="M -124 90 A 155 155 0 0 1 -90 124" fill="none" />
             <path id="iterate-arc-pf-outer" d="M -124 90 A 155 155 0 0 1 -90 124" fill="none" />
+            {/* Achiever–Partner (top-left) and Leader–Follower (bottom-right): outer arc for Variety (same as Iterate) */}
+            <path id="seek-variety-arc-ap" d="M -90 -124 A 155 155 0 0 1 -124 -90" fill="none" />
+            <path id="seek-variety-arc-lf" d="M 90 124 A 155 155 0 0 1 124 90" fill="none" />
+            {/* Inner arcs for Pursuit; pathLength so full text fits on curve without clipping */}
+            <path id="pursue-passions-arc-ap" d="M -106 -75 A 132 132 0 0 1 -75 -106" fill="none" pathLength="280" />
+            <path id="pursue-passions-arc-lf" d="M 106 75 A 132 132 0 0 1 75 106" fill="none" pathLength="280" />
           </defs>
+          {/* Role labels drawn first so arc labels (Iterate, Adjust, Variety, Pursuit) render on top */}
+          <g onClick={() => handleRoleClick("Achiever")} style={{ cursor: "pointer" }}>
+            <text x="0" y="-185" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">Achiever</text>
+          </g>
+          <g transform="rotate(90, 185, 0)" onClick={() => handleRoleClick("Leader")} style={{ cursor: "pointer" }}>
+            <text x="185" y="0" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">Leader</text>
+          </g>
+          <g transform="rotate(180, 0, 193)" onClick={() => handleRoleClick("Follower")} style={{ cursor: "pointer" }}>
+            <text x="0" y="193" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">Follower</text>
+          </g>
+          <g transform="rotate(-90, -185, 0)" onClick={() => handleRoleClick("Partner")} style={{ cursor: "pointer" }}>
+            <text x="-185" y="0" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">Partner</text>
+          </g>
           <text fill="rgba(255,255,255,0.85)" fontSize="9" fontWeight="400">
             <textPath href="#adjust-arc" startOffset="50%" textAnchor="middle">
               Iterate
@@ -138,41 +158,19 @@ export default function Compass() {
               </textPath>
             </text>
           </g>
-
-          {/* Labels — click to rotate that role to north */}
-          <g
-            onClick={() => handleRoleClick("Achiever")}
-            style={{ cursor: "pointer" }}
-          >
-            <text x="0" y="-185" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">
-              Achiever
+          {/* Variety: top-left (Achiever–Partner) and bottom-right (Leader–Follower), same position as Iterate, 180° so faces center */}
+          <g transform="rotate(180, -107, -107)">
+            <text fill="rgba(255,255,255,0.85)" fontSize="9" fontWeight="400">
+              <textPath href="#seek-variety-arc-ap" startOffset="50%" textAnchor="middle">
+                Variety
+              </textPath>
             </text>
           </g>
-          <g
-            transform="rotate(90, 185, 0)"
-            onClick={() => handleRoleClick("Leader")}
-            style={{ cursor: "pointer" }}
-          >
-            <text x="185" y="0" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">
-              Leader
-            </text>
-          </g>
-          <g
-            transform="rotate(180, 0, 193)"
-            onClick={() => handleRoleClick("Follower")}
-            style={{ cursor: "pointer" }}
-          >
-            <text x="0" y="193" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">
-              Follower
-            </text>
-          </g>
-          <g
-            transform="rotate(-90, -185, 0)"
-            onClick={() => handleRoleClick("Partner")}
-            style={{ cursor: "pointer" }}
-          >
-            <text x="-185" y="0" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="12">
-              Partner
+          <g transform="rotate(180, 107, 107)">
+            <text fill="rgba(255,255,255,0.85)" fontSize="9" fontWeight="400">
+              <textPath href="#seek-variety-arc-lf" startOffset="50%" textAnchor="middle">
+                Variety
+              </textPath>
             </text>
           </g>
 
@@ -294,6 +292,22 @@ export default function Compass() {
           <g transform="rotate(-90, -143, 0)">
             <PrincipleChip x={-143} y={0} label="P9" />
           </g>
+
+        </g>
+        {/* Pursuit: curved on path; top-left 180° so faces center like Variety */}
+        <g transform={`rotate(${-rotation})`} style={{ transition: "transform 250ms ease" }}>
+          <g transform="rotate(360, -90.5, -90.5)">
+            <text fill="rgba(255,255,255,0.85)" fontSize="9" fontWeight="400">
+              <textPath href="#pursue-passions-arc-ap" startOffset="50%" textAnchor="middle">
+                Pursuit
+              </textPath>
+            </text>
+          </g>
+          <text fill="rgba(255,255,255,0.85)" fontSize="9" fontWeight="400">
+            <textPath href="#pursue-passions-arc-lf" startOffset="50%" textAnchor="middle">
+              Pursuit
+            </textPath>
+          </text>
         </g>
       </svg>
     </div>
