@@ -24,7 +24,7 @@ const ROLE_LIGHTBOX: Record<Role, { title: string; body: ReactNode }> = {
   Achiever: {
     title: "Responsibility of the Achiever",
     body: (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", alignItems: "start", fontSize: 16, lineHeight: 1.5, marginBottom: -4 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", alignItems: "start", fontSize: 17, lineHeight: 1.5, marginBottom: -4 }}>
         <div>
           <p style={{ margin: "0 0 0.4rem", lineHeight: 1.45 }}>The Achiever sits North on the Compass.</p>
           <p style={{ margin: "0 0 0.4rem", lineHeight: 1.45 }}>North isn&apos;t a position of superiority—it&apos;s direction. It&apos;s where clarity turns into motion, where knowing becomes doing.</p>
@@ -47,7 +47,7 @@ const ROLE_LIGHTBOX: Record<Role, { title: string; body: ReactNode }> = {
   Leader: {
     title: "Responsibility of the Leader",
     body: (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", alignItems: "start", fontSize: 16, lineHeight: 1.5, marginBottom: -4 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", alignItems: "start", fontSize: 17, lineHeight: 1.5, marginBottom: -4 }}>
         <div>
           <p style={{ margin: "0 0 0.4rem", lineHeight: 1.45 }}>The Leader role exists to shape clarity—not just for ourselves, but for others.</p>
           <p style={{ margin: "0 0 0.4rem", lineHeight: 1.45 }}>That clarity doesn&apos;t come from control. It comes from vision—the willingness to look ahead, hold the long arc in view, and help people align around where we&apos;re going and why it matters.</p>
@@ -66,7 +66,7 @@ const ROLE_LIGHTBOX: Record<Role, { title: string; body: ReactNode }> = {
   Follower: {
     title: "Responsibility of the Follower",
     body: (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", alignItems: "start", fontSize: 16, lineHeight: 1.5, marginBottom: -4 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", alignItems: "start", fontSize: 17, lineHeight: 1.5, marginBottom: -4 }}>
         <div>
           <p style={{ margin: "0 0 0.4rem", lineHeight: 1.45 }}>Of all the Compass roles, the Follower is often the most misunderstood.</p>
           <p style={{ margin: "0 0 0.4rem", lineHeight: 1.45 }}>The Follower role is where we align ourselves with something meaningful, even when we&apos;re not the one setting the direction. It&apos;s where we learn, support, adapt, and contribute—not passively, but with grounded intention.</p>
@@ -86,7 +86,7 @@ const ROLE_LIGHTBOX: Record<Role, { title: string; body: ReactNode }> = {
   Partner: {
     title: "Responsibility of the Partner",
     body: (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", alignItems: "start", fontSize: 16, lineHeight: 1.5 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", alignItems: "start", fontSize: 17, lineHeight: 1.5 }}>
         <div>
           <p style={{ margin: "0 0 0.6rem", lineHeight: 1.5 }}>The Partner role is where synergy begins. It&apos;s where two (or more) people commit to moving forward together—each bringing presence, honesty, and effort to a shared goal, life, or experience.</p>
           <p style={{ margin: "0 0 0.6rem", lineHeight: 1.5 }}>The Partner sits West on the Compass by default—the direction of reflection, endurance, and deepening alignment.</p>
@@ -378,7 +378,7 @@ const COMPASS_TITLE_LIGHTBOX = {
   ),
 };
 
-export default function Compass() {
+export default function Compass({ compact = false }: { compact?: boolean }) {
   const [rotation, setRotation] = useState(0);
   const [lightboxCompassTitle, setLightboxCompassTitle] = useState(false);
   const [lightboxRole, setLightboxRole] = useState<Role | null>(null);
@@ -479,7 +479,7 @@ export default function Compass() {
     <>
     <div
       style={{
-        width: "min(900px, 92vw, 82vh)",
+        width: compact ? "min(420px, 45vw, 55vh)" : "min(900px, 92vw, 82vh)",
         borderRadius: 18,
         border: "1px solid rgba(255,255,255,0.18)",
         background: "radial-gradient(circle at 50% 40%, rgba(255,255,255,0.06), rgba(0,0,0,0))",
