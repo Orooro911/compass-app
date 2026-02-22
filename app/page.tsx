@@ -17,18 +17,59 @@ const SUGGESTIONS: Record<string, string[]> = {
 
 const CONTENT_ONLY_MODULES = ["life-roles", "shared-growth"];
 
+const LINK_TARGETS: Record<string, string[]> = {
+  "life-roles": ["shared-growth", "situations"],
+  "shared-growth": ["life-roles", "situations"],
+};
+
+function Lightbox({
+  title,
+  onClose,
+  children,
+  maxWidth = 480,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  maxWidth?: number;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[1000] flex items-center justify-center p-6"
+      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="rounded-xl border border-white/20 max-h-[85vh] w-full overflow-auto"
+        style={{ background: "#1a1a1c", boxShadow: "0 24px 80px rgba(0,0,0,0.5)", maxWidth }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-white/12 px-5 py-4">
+          <h2 className="m-0 text-lg font-semibold text-white">{title}</h2>
+          <button type="button" onClick={onClose} className="border-none bg-transparent p-1 text-2xl leading-none text-white/70 hover:text-white" aria-label="Close">
+            ×
+          </button>
+        </div>
+        <div className="px-6 py-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 function LinkSection({
   title,
   moduleId,
   items,
   isLinked,
   toggleLink,
+  onAdd,
 }: {
   title: string;
   moduleId: string;
   items: string[];
   isLinked: (mod: string, item: string) => boolean;
   toggleLink: (mod: string, item: string) => void;
+  onAdd?: (moduleId: string) => void;
 }) {
   const linked = items.filter((i) => isLinked(moduleId, i));
   const notLinked = items.filter((i) => !isLinked(moduleId, i));
@@ -50,7 +91,18 @@ function LinkSection({
 
   return (
     <div>
-      <h3 className="mb-3 text-sm font-medium text-white/90">{title}</h3>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-medium text-white/90">{title}</h3>
+        {onAdd && (
+          <button
+            type="button"
+            onClick={() => onAdd(moduleId)}
+            className="text-xs text-white/60 hover:text-white"
+          >
+            + Add
+          </button>
+        )}
+      </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
           <div className="mb-2 text-xs font-medium uppercase tracking-wider text-emerald-400/80">Linked</div>
@@ -69,48 +121,28 @@ function LinkSection({
   );
 }
 
-function Lightbox({
+function RightPanel({
   title,
-  onClose,
+  onBack,
   children,
-  maxWidth = 480,
 }: {
   title: string;
-  onClose: () => void;
+  onBack: () => void;
   children: React.ReactNode;
-  maxWidth?: number;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center p-6"
-      style={{
-        background: "rgba(0,0,0,0.6)",
-        backdropFilter: "blur(4px)",
-      }}
-      onClick={onClose}
-    >
-      <div
-        className="rounded-xl border border-white/20 max-h-[85vh] w-full overflow-auto"
-        style={{
-          background: "#1a1a1c",
-          boxShadow: "0 24px 80px rgba(0,0,0,0.5)",
-          maxWidth,
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-white/12 px-5 py-4">
-          <h2 className="m-0 text-lg font-semibold text-white">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="border-none bg-transparent p-1 text-2xl leading-none text-white/70 hover:text-white"
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </div>
-        <div className="px-6 py-5 text-[17px] leading-relaxed">{children}</div>
+    <div className="flex flex-col rounded-xl border border-white/20 bg-white/5 overflow-hidden max-h-[85vh]">
+      <div className="flex items-center justify-between border-b border-white/12 px-5 py-4 shrink-0">
+        <h2 className="m-0 text-lg font-semibold text-white">{title}</h2>
+        <button
+          type="button"
+          onClick={onBack}
+          className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10 hover:text-white"
+        >
+          Back to dashboard
+        </button>
       </div>
+      <div className="flex-1 overflow-auto px-6 py-5 text-[17px] leading-relaxed">{children}</div>
     </div>
   );
 }
@@ -156,14 +188,12 @@ function ItemList({
 }
 
 function AddLightbox({
-  moduleId,
   moduleTitle,
   currentItems,
   suggestions,
   onAdd,
   onClose,
 }: {
-  moduleId: string;
   moduleTitle: string;
   currentItems: string[];
   suggestions: string[];
@@ -193,7 +223,6 @@ function AddLightbox({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Type to search or add new…"
           className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white placeholder:text-white/40"
-          autoFocus
         />
         <div className="max-h-64 overflow-auto rounded-lg border border-white/10">
           <div className="divide-y divide-white/10">
@@ -286,15 +315,16 @@ function ModuleCard({
 
 const initialItems = Object.fromEntries(MODULES.map((m) => [m.id, [...m.items]]));
 
+type RightPanelView = { type: "dashboard" } | { type: "item-detail"; item: string; moduleId: string };
+
 export default function Home() {
   const [moduleItems, setModuleItems] = useState<Record<string, string[]>>(initialItems);
-  const [lightbox, setLightbox] = useState<{ item: string; moduleId: string } | null>(null);
-  const [addLightbox, setAddLightbox] = useState<string | null>(null);
+  const [rightPanel, setRightPanel] = useState<RightPanelView>({ type: "dashboard" });
+  const [addLightboxModuleId, setAddLightboxModuleId] = useState<string | null>(null);
   const [editedName, setEditedName] = useState("");
   const [links, setLinks] = useState<Set<string>>(new Set());
 
-  const sharedGrowthItems = moduleItems["shared-growth"] ?? [];
-  const situationsItems = moduleItems["situations"] ?? [];
+  const activeItem = rightPanel.type === "item-detail" ? rightPanel : null;
 
   const addItem = (moduleId: string, item: string) => {
     setModuleItems((prev) => {
@@ -305,21 +335,21 @@ export default function Home() {
   };
 
   const handleItemClick = (item: string, moduleId: string) => {
-    setLightbox({ item, moduleId });
+    setRightPanel({ type: "item-detail", item, moduleId });
     setEditedName(item);
   };
 
-  const closeLightbox = () => setLightbox(null);
+  const backToDashboard = () => setRightPanel({ type: "dashboard" });
 
   const linkKey = (srcMod: string, srcItem: string, tgtMod: string, tgtItem: string) =>
     `${srcMod}|${srcItem}|${tgtMod}|${tgtItem}`;
 
   const isLinked = (targetModuleId: string, targetItem: string) =>
-    !!lightbox && links.has(linkKey(lightbox.moduleId, lightbox.item, targetModuleId, targetItem));
+    !!activeItem && links.has(linkKey(activeItem.moduleId, activeItem.item, targetModuleId, targetItem));
 
   const toggleLink = (targetModuleId: string, targetItem: string) => {
-    if (!lightbox) return;
-    const key = linkKey(lightbox.moduleId, lightbox.item, targetModuleId, targetItem);
+    if (!activeItem) return;
+    const key = linkKey(activeItem.moduleId, activeItem.item, targetModuleId, targetItem);
     setLinks((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
@@ -343,78 +373,76 @@ export default function Home() {
       {/* Spacer — desktop only */}
       <div className="hidden lg:block flex-none w-[200px] shrink-0" />
 
-      {/* Right: Module cards */}
-      <div className="flex-none flex flex-col justify-center gap-4 pt-6 lg:pt-0 lg:max-w-md">
-        {MODULES.map((m) => (
-          <ModuleCard
-            key={m.id}
-            moduleId={m.id}
-            title={m.title}
-            description={m.description}
-            items={moduleItems[m.id] ?? []}
-            onItemClick={CONTENT_ONLY_MODULES.includes(m.id) ? (item) => handleItemClick(item, m.id) : undefined}
-            onAdd={() => setAddLightbox(m.id)}
-          />
-        ))}
+      {/* Right: Module cards or detail/add panel */}
+      <div className="flex-none flex flex-col justify-center pt-6 lg:pt-0 lg:max-w-md">
+        {rightPanel.type === "dashboard" && (
+          <div className="flex flex-col gap-4">
+            {MODULES.map((m) => (
+              <ModuleCard
+                key={m.id}
+                moduleId={m.id}
+                title={m.title}
+                description={m.description}
+                items={moduleItems[m.id] ?? []}
+                onItemClick={CONTENT_ONLY_MODULES.includes(m.id) ? (item) => handleItemClick(item, m.id) : undefined}
+                onAdd={() => setAddLightboxModuleId(m.id)}
+              />
+            ))}
+          </div>
+        )}
+
+        {rightPanel.type === "item-detail" && (
+          <RightPanel title={rightPanel.item} onBack={backToDashboard}>
+            <div className="flex flex-col gap-6">
+              <label className="text-sm text-white/80">
+                Name
+                <input
+                  type="text"
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  className="mt-1 block w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white"
+                />
+              </label>
+
+              {(LINK_TARGETS[rightPanel.moduleId] ?? []).map((targetModuleId) => {
+                const targetModule = MODULES.find((m) => m.id === targetModuleId);
+                const items = moduleItems[targetModuleId] ?? [];
+                if (!targetModule) return null;
+                return (
+                  <LinkSection
+                    key={targetModuleId}
+                    title={targetModule.title}
+                    moduleId={targetModuleId}
+                    items={items}
+                    isLinked={isLinked}
+                    toggleLink={toggleLink}
+                    onAdd={(id) => setAddLightboxModuleId(id)}
+                  />
+                );
+              })}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={backToDashboard}
+                  className="rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </RightPanel>
+        )}
       </div>
 
-      {/* Add item lightbox */}
-      {addLightbox && (
+      {addLightboxModuleId && (
         <AddLightbox
-          moduleId={addLightbox}
-          moduleTitle={MODULES.find((m) => m.id === addLightbox)?.title ?? ""}
-          currentItems={moduleItems[addLightbox] ?? []}
-          suggestions={SUGGESTIONS[addLightbox] ?? []}
-          onAdd={(item) => addItem(addLightbox, item)}
-          onClose={() => setAddLightbox(null)}
+          moduleTitle={MODULES.find((m) => m.id === addLightboxModuleId)?.title ?? ""}
+          currentItems={moduleItems[addLightboxModuleId] ?? []}
+          suggestions={SUGGESTIONS[addLightboxModuleId] ?? []}
+          onAdd={(item) => addItem(addLightboxModuleId, item)}
+          onClose={() => setAddLightboxModuleId(null)}
         />
-      )}
-
-      {/* Item detail lightbox — edit name + see/toggle links */}
-      {lightbox && (
-        <Lightbox title={lightbox.item} onClose={closeLightbox} maxWidth={560}>
-          <div className="flex flex-col gap-6">
-            <label className="text-sm text-white/80">
-              Name
-              <input
-                type="text"
-                value={editedName}
-                onChange={(e) => setEditedName(e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white"
-              />
-            </label>
-
-            {sharedGrowthItems.length > 0 && (
-              <LinkSection
-                title="Shared Growth"
-                moduleId="shared-growth"
-                items={sharedGrowthItems}
-                isLinked={isLinked}
-                toggleLink={toggleLink}
-              />
-            )}
-
-            {situationsItems.length > 0 && (
-              <LinkSection
-                title="Situations"
-                moduleId="situations"
-                items={situationsItems}
-                isLinked={isLinked}
-                toggleLink={toggleLink}
-              />
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={closeLightbox}
-                className="rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </Lightbox>
       )}
     </main>
   );
