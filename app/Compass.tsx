@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 
 type Role = "Achiever" | "Leader" | "Follower" | "Partner";
 
@@ -378,12 +378,116 @@ const COMPASS_TITLE_LIGHTBOX = {
   ),
 };
 
-export default function Compass({ compact = false }: { compact?: boolean }) {
+function PrincipleLightboxWithTabs({
+  title,
+  onClose,
+  body,
+  hasSituationTab,
+  userContent,
+  onUserContentChange,
+}: {
+  title: string;
+  onClose: () => void;
+  body: ReactNode;
+  hasSituationTab: boolean;
+  userContent: string;
+  onUserContentChange: (value: string) => void;
+}) {
+  const [tab, setTab] = useState<"content" | "think" | "entered">(hasSituationTab ? "entered" : "content");
+  const tabs = hasSituationTab
+    ? [
+        { id: "content" as const, label: "Content" },
+        { id: "think" as const, label: "How to think" },
+        { id: "entered" as const, label: "What I entered" },
+      ]
+    : [
+        { id: "content" as const, label: "Content" },
+        { id: "think" as const, label: "How to think" },
+      ];
+
+  return (
+    <Lightbox title={title} onClose={onClose}>
+      <div>
+        <div style={{ display: "flex", gap: 12, marginBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.12)", paddingBottom: 8 }}>
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              style={{
+                background: "none",
+                border: "none",
+                color: tab === t.id ? "#fff" : "rgba(255,255,255,0.6)",
+                cursor: "pointer",
+                fontSize: 14,
+                fontWeight: tab === t.id ? 600 : 400,
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ padding: "0.5rem 0", minHeight: 120, color: "rgba(255,255,255,0.9)" }}>
+          {tab === "content" && body}
+          {tab === "think" && (
+            <p style={{ margin: 0, lineHeight: 1.5 }}>Reflect on how this principle applies to your situation. What would it look like to embody it? What might get in the way?</p>
+          )}
+          {tab === "entered" && (
+            <textarea
+              value={userContent}
+              onChange={(e) => onUserContentChange(e.target.value)}
+              placeholder="Add your notes, opportunities, obstacles, or action items here…"
+              style={{
+                width: "100%",
+                minHeight: 180,
+                padding: 12,
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.2)",
+                borderRadius: 8,
+                color: "#fff",
+                fontSize: 15,
+                lineHeight: 1.5,
+                resize: "vertical",
+              }}
+            />
+          )}
+        </div>
+      </div>
+    </Lightbox>
+  );
+}
+
+type CompassProps = {
+  compact?: boolean;
+  activeSituation?: string | null;
+  situationPrincipleContent?: Record<string, string>;
+  onSituationPrincipleContentChange?: (situation: string, principle: string, content: string) => void;
+  openPrincipleId?: string | null;
+  onPrincipleLightboxClose?: () => void;
+};
+
+export default function Compass({
+  compact = false,
+  activeSituation = null,
+  situationPrincipleContent = {},
+  onSituationPrincipleContentChange,
+  openPrincipleId = null,
+  onPrincipleLightboxClose,
+}: CompassProps) {
   const [rotation, setRotation] = useState(0);
   const [lightboxCompassTitle, setLightboxCompassTitle] = useState(false);
   const [lightboxRole, setLightboxRole] = useState<Role | null>(null);
   const [lightboxPrinciple, setLightboxPrinciple] = useState<{ role: Role; principle: string } | null>(null);
   const [lightboxLevel, setLightboxLevel] = useState<{ role: Role; levelIndex: number } | null>(null);
+
+  useEffect(() => {
+    if (openPrincipleId && activeSituation) {
+      setLightboxCompassTitle(false);
+      setLightboxRole(null);
+      setLightboxLevel(null);
+      setLightboxPrinciple({ role: "Achiever", principle: openPrincipleId });
+    }
+  }, [openPrincipleId, activeSituation]);
 
   const openCompassTitleLightbox = () => {
     setLightboxRole(null);
@@ -859,12 +963,24 @@ export default function Compass({ compact = false }: { compact?: boolean }) {
 
     {lightboxPrinciple && (() => {
       const { title, body } = getPrincipleLightbox(lightboxPrinciple.role, lightboxPrinciple.principle);
+      const hasSituationTab = !!activeSituation && !!onSituationPrincipleContentChange;
+      const contentKey = activeSituation ? `${activeSituation}|${lightboxPrinciple.principle}` : "";
+      const userContent = (activeSituation && situationPrincipleContent?.[contentKey]) ?? "";
+
+      const handleClose = () => {
+        setLightboxPrinciple(null);
+        onPrincipleLightboxClose?.();
+      };
+
       return (
-        <Lightbox title={title} onClose={() => setLightboxPrinciple(null)}>
-          <div style={{ padding: "1rem 0", minHeight: 120, color: "rgba(255,255,255,0.9)" }}>
-            {body}
-          </div>
-        </Lightbox>
+        <PrincipleLightboxWithTabs
+          title={title}
+          onClose={handleClose}
+          body={body}
+          hasSituationTab={hasSituationTab}
+          userContent={userContent}
+          onUserContentChange={(v) => activeSituation && onSituationPrincipleContentChange?.(activeSituation, lightboxPrinciple.principle, v)}
+        />
       );
     })()}
 

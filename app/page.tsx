@@ -15,12 +15,35 @@ const SUGGESTIONS: Record<string, string[]> = {
   "situations": ["Career transition", "Difficult conversation", "New project", "Feedback session", "Conflict resolution", "Team restructure", "Salary negotiation", "Onboarding", "Performance review", "Project deadline", "Remote work", "New role"],
 };
 
-const CONTENT_ONLY_MODULES = ["life-roles", "shared-growth"];
+const CONTENT_ONLY_MODULES = ["life-roles", "shared-growth", "situations"];
 
 const LINK_TARGETS: Record<string, string[]> = {
   "life-roles": ["shared-growth", "situations"],
   "shared-growth": ["life-roles", "situations"],
+  "situations": ["life-roles", "shared-growth"],
 };
+
+const PRINCIPLES_BY_LEVEL: { level: string; principles: { id: string; label: string }[] }[] = [
+  { level: "Level 1 — Foundation", principles: [
+    { id: "P1", label: "Evaluate opportunities and obstacles" },
+    { id: "P2", label: "Understand style and mindset" },
+    { id: "P3", label: "Envision an ideal future" },
+  ]},
+  { level: "Level 2 — Alignment", principles: [
+    { id: "P4", label: "Set measurable objectives" },
+    { id: "P5", label: "Prioritize what matters" },
+  ]},
+  { level: "Level 3", principles: [
+    { id: "P6", label: "Build effective systems" },
+    { id: "P7", label: "Invest in personal development" },
+  ]},
+  { level: "Level 4", principles: [
+    { id: "P8", label: "Engage with collaborators" },
+  ]},
+  { level: "Level 5", principles: [
+    { id: "P9", label: "Maintain a laser focus on execution" },
+  ]},
+];
 
 function Lightbox({
   title,
@@ -117,6 +140,170 @@ function LinkSection({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PrinciplesByLevel({
+  situationName,
+  situationPrincipleContent,
+  onEditPrinciple,
+}: {
+  situationName: string;
+  situationPrincipleContent: Record<string, string>;
+  onEditPrinciple: (principleId: string) => void;
+}) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggle = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <div className="space-y-4 pt-4 border-t border-white/10">
+      <h3 className="text-sm font-medium text-white/90">Principles</h3>
+      {PRINCIPLES_BY_LEVEL.map(({ level, principles }) => (
+        <div key={level}>
+          <div className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">{level}</div>
+          <div className="space-y-1">
+            {principles.map(({ id, label }) => {
+              const contentKey = `${situationName}|${id}`;
+              const userContent = situationPrincipleContent[contentKey] ?? "";
+              const isExpanded = expanded.has(id);
+              return (
+                <div key={id} className="rounded-lg border border-white/10 overflow-hidden">
+                  <div className="flex items-center px-3 py-2">
+                    <button
+                      type="button"
+                      onClick={() => toggle(id)}
+                      className="flex flex-1 items-center text-left text-sm hover:bg-white/5 -mx-2 px-2 py-1 rounded"
+                    >
+                      <span className="font-medium text-white/70 shrink-0">{id}</span>
+                      <span className="flex-1 ml-2 text-white/90 truncate">{label}</span>
+                      <span className="text-white/40 text-xs ml-2 shrink-0">{userContent ? "•" : "—"}</span>
+                      <span className="ml-2 text-white/50 shrink-0">{isExpanded ? "▼" : "▶"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onEditPrinciple(id); }}
+                      className="text-xs text-white/50 hover:text-white shrink-0 ml-1"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  {isExpanded && (
+                    <div className="px-3 py-2 border-t border-white/10 bg-white/5 text-sm text-white/80 whitespace-pre-wrap">
+                      {userContent || <span className="text-white/40">No notes yet.</span>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FullPlanSection({
+  situationName,
+  situationPrincipleContent,
+  onEditPrinciple,
+}: {
+  situationName: string;
+  situationPrincipleContent: Record<string, string>;
+  onEditPrinciple: (principleId: string) => void;
+}) {
+  return (
+    <div className="mt-12 w-full max-w-2xl mx-auto px-4 pb-12 print:mt-0" id="action-plan">
+      <h2 className="text-xl font-semibold text-white mb-6">{situationName} — Action Plan</h2>
+      <div className="space-y-6">
+        {PRINCIPLES_BY_LEVEL.map(({ level, principles }) => (
+          <div key={level}>
+            <h3 className="text-sm font-medium text-white/80 mb-3">{level}</h3>
+            <div className="space-y-4">
+              {principles.map(({ id, label }) => {
+                const contentKey = `${situationName}|${id}`;
+                const userContent = situationPrincipleContent[contentKey] ?? "";
+                return (
+                  <div key={id} className="rounded-lg border border-white/15 bg-white/5 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-white/90">{id}</span>
+                      <span className="text-sm text-white/70">{label}</span>
+                      <button
+                        type="button"
+                        onClick={() => onEditPrinciple(id)}
+                        className="text-xs text-white/50 hover:text-white"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                    <div className="text-sm text-white/80 whitespace-pre-wrap min-h-[2em]">
+                      {userContent || <span className="text-white/40 italic">No notes yet.</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-8 text-xs text-white/50">You can print this page to save or share your action plan.</p>
+    </div>
+  );
+}
+
+function LinkedSummary({
+  activeItem,
+  links,
+  moduleItems,
+  linkKey,
+}: {
+  activeItem: { moduleId: string; item: string };
+  links: Set<string>;
+  moduleItems: Record<string, string[]>;
+  linkKey: (srcMod: string, srcItem: string, tgtMod: string, tgtItem: string) => string;
+}) {
+  const getLinkedFor = (targetModuleId: string) =>
+    (moduleItems[targetModuleId] ?? []).filter((tgtItem) =>
+      links.has(linkKey(activeItem.moduleId, activeItem.item, targetModuleId, tgtItem))
+    );
+
+  const sections = (LINK_TARGETS[activeItem.moduleId] ?? []).map((targetModuleId) => {
+    const targetModule = MODULES.find((m) => m.id === targetModuleId);
+    const linked = getLinkedFor(targetModuleId);
+    return { targetModule, linked };
+  }).filter((s) => s.targetModule && s.linked.length > 0);
+
+  if (sections.length === 0) {
+    return (
+      <p className="text-sm text-white/60">No links yet. Click Edit links to add Life Roles, Shared Growth, or Situations.</p>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {sections.map(({ targetModule, linked }) => (
+        <div key={targetModule!.id}>
+          <h3 className="mb-2 text-sm font-medium text-white/90">{targetModule!.title}</h3>
+          <div className="flex flex-wrap gap-2">
+            {linked.map((item) => (
+              <span
+                key={item}
+                className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm text-white"
+              >
+                {item} ✓
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -315,7 +502,9 @@ function ModuleCard({
 
 const initialItems = Object.fromEntries(MODULES.map((m) => [m.id, [...m.items]]));
 
-type RightPanelView = { type: "dashboard" } | { type: "item-detail"; item: string; moduleId: string };
+type RightPanelView =
+  | { type: "dashboard" }
+  | { type: "item-detail"; item: string; moduleId: string; mode: "editing" | "summary" };
 
 export default function Home() {
   const [moduleItems, setModuleItems] = useState<Record<string, string[]>>(initialItems);
@@ -323,6 +512,12 @@ export default function Home() {
   const [addLightboxModuleId, setAddLightboxModuleId] = useState<string | null>(null);
   const [editedName, setEditedName] = useState("");
   const [links, setLinks] = useState<Set<string>>(new Set());
+  const [situationPrincipleContent, setSituationPrincipleContentState] = useState<Record<string, string>>({});
+  const [openPrincipleId, setOpenPrincipleId] = useState<string | null>(null);
+
+  const setSituationPrincipleContent = (situation: string, principle: string, content: string) => {
+    setSituationPrincipleContentState((prev) => ({ ...prev, [`${situation}|${principle}`]: content }));
+  };
 
   const activeItem = rightPanel.type === "item-detail" ? rightPanel : null;
 
@@ -335,11 +530,17 @@ export default function Home() {
   };
 
   const handleItemClick = (item: string, moduleId: string) => {
-    setRightPanel({ type: "item-detail", item, moduleId });
+    setRightPanel({ type: "item-detail", item, moduleId, mode: "editing" });
     setEditedName(item);
   };
 
   const backToDashboard = () => setRightPanel({ type: "dashboard" });
+
+  const setItemDetailMode = (mode: "editing" | "summary") => {
+    setRightPanel((prev) =>
+      prev.type === "item-detail" ? { ...prev, mode } : prev
+    );
+  };
 
   const linkKey = (srcMod: string, srcItem: string, tgtMod: string, tgtItem: string) =>
     `${srcMod}|${srcItem}|${tgtMod}|${tgtItem}`;
@@ -358,15 +559,24 @@ export default function Home() {
     });
   };
 
+  const showFullPlan = rightPanel.type === "item-detail" && rightPanel.moduleId === "situations";
+
   return (
-    <main
-      className="min-h-screen bg-[#0b0b0c] text-white flex flex-col lg:flex-row lg:justify-center lg:items-center"
-      style={{ padding: "min(2vh, 24px)" }}
-    >
+    <main className="min-h-screen bg-[#0b0b0c] text-white flex flex-col">
+      <div
+        className="flex flex-1 flex-col lg:flex-row lg:justify-center lg:items-center"
+        style={{ padding: "min(2vh, 24px)" }}
+      >
       {/* Left: Compass (desktop) | Top (mobile) */}
       <div className="flex-none flex items-center justify-center lg:min-w-0">
         <div className="w-full max-w-full flex justify-center">
-          <Compass />
+          <Compass
+            activeSituation={rightPanel.type === "item-detail" && rightPanel.moduleId === "situations" ? rightPanel.item : null}
+            situationPrincipleContent={situationPrincipleContent}
+            onSituationPrincipleContentChange={setSituationPrincipleContent}
+            openPrincipleId={openPrincipleId}
+            onPrincipleLightboxClose={() => setOpenPrincipleId(null)}
+          />
         </div>
       </div>
 
@@ -404,32 +614,62 @@ export default function Home() {
                 />
               </label>
 
-              {(LINK_TARGETS[rightPanel.moduleId] ?? []).map((targetModuleId) => {
-                const targetModule = MODULES.find((m) => m.id === targetModuleId);
-                const items = moduleItems[targetModuleId] ?? [];
-                if (!targetModule) return null;
-                return (
-                  <LinkSection
-                    key={targetModuleId}
-                    title={targetModule.title}
-                    moduleId={targetModuleId}
-                    items={items}
-                    isLinked={isLinked}
-                    toggleLink={toggleLink}
-                    onAdd={(id) => setAddLightboxModuleId(id)}
-                  />
-                );
-              })}
+              {rightPanel.mode === "editing" ? (
+                <>
+                  {(LINK_TARGETS[rightPanel.moduleId] ?? []).map((targetModuleId) => {
+                    const targetModule = MODULES.find((m) => m.id === targetModuleId);
+                    const items = moduleItems[targetModuleId] ?? [];
+                    if (!targetModule) return null;
+                    return (
+                      <LinkSection
+                        key={targetModuleId}
+                        title={targetModule.title}
+                        moduleId={targetModuleId}
+                        items={items}
+                        isLinked={isLinked}
+                        toggleLink={toggleLink}
+                        onAdd={(id) => setAddLightboxModuleId(id)}
+                      />
+                    );
+                  })}
 
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={backToDashboard}
-                  className="rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
-                >
-                  Done
-                </button>
-              </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setItemDetailMode("summary")}
+                      className="rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <LinkedSummary
+                    activeItem={rightPanel}
+                    links={links}
+                    moduleItems={moduleItems}
+                    linkKey={linkKey}
+                  />
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setItemDetailMode("editing")}
+                      className="rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
+                    >
+                      Edit links
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {rightPanel.moduleId === "situations" && (
+                <PrinciplesByLevel
+                  situationName={rightPanel.item}
+                  situationPrincipleContent={situationPrincipleContent}
+                  onEditPrinciple={setOpenPrincipleId}
+                />
+              )}
             </div>
           </RightPanel>
         )}
@@ -442,6 +682,15 @@ export default function Home() {
           suggestions={SUGGESTIONS[addLightboxModuleId] ?? []}
           onAdd={(item) => addItem(addLightboxModuleId, item)}
           onClose={() => setAddLightboxModuleId(null)}
+        />
+      )}
+      </div>
+
+      {showFullPlan && (
+        <FullPlanSection
+          situationName={rightPanel.item}
+          situationPrincipleContent={situationPrincipleContent}
+          onEditPrinciple={setOpenPrincipleId}
         />
       )}
     </main>
