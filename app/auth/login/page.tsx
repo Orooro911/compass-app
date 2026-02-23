@@ -11,12 +11,12 @@ export default function LoginPage() {
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage(null);
+    const supabase = createClient();
 
     try {
       if (isSignUp) {
