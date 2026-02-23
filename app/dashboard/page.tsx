@@ -10,10 +10,91 @@ const MODULES = [
   { id: "situations", title: "Situations", description: "Meaningful situations to work through strategically with the Compass.", items: ["Career transition", "Difficult conversation", "New project", "Feedback session", "Conflict resolution", "Team restructure", "Salary negotiation", "Onboarding"] },
 ];
 
+const LIFE_ROLES_GROUPED: Record<string, string[]> = {
+  "Personal Roles": [
+    "Parent", "Father", "Mother", "Spouse", "Partner", "Co-Parent", "Son", "Daughter", "Sibling",
+    "Grandparent", "Extended Family Member", "Caregiver", "Close Friend", "Mentor", "Mentee",
+  ],
+  "Professional Roles": [
+    "Founder", "Business Owner", "Executive", "Manager", "Team Leader", "Individual Contributor",
+    "Employee", "Consultant", "Entrepreneur", "Board Member", "Advisor", "Creative Professional",
+    "Developer / Engineer", "Sales Professional", "Teacher / Educator", "Coach", "Healthcare Professional",
+    "Public Servant",
+  ],
+  "Personal Development & Health": [
+    "Health Steward (Physical Health)", "Mental Health Steward", "Spiritual Practitioner", "Athlete",
+    "Student", "Lifelong Learner", "Researcher", "Creator", "Writer", "Artist",
+  ],
+  "Financial & Structural Roles": [
+    "Investor", "Wealth Manager", "Budget Manager", "Property Owner", "Landlord", "Estate Planner",
+    "Financial Provider",
+  ],
+  "Community & Contribution": [
+    "Community Member", "Volunteer", "Church / Faith Member", "Organizer", "Advocate", "Neighbor",
+    "Civic Participant",
+  ],
+  "Household & Domestic Roles": [
+    "Household Manager", "Homeowner", "Property Steward", "Primary Organizer", "Family Logistics Lead",
+  ],
+  "Creative & Personal Pursuits": [
+    "Builder", "Inventor", "Musician", "Designer", "Content Creator", "Hobbyist", "Engineer",
+    "Craftsperson",
+  ],
+};
+
+const LIFE_ROLES_FLAT = Object.values(LIFE_ROLES_GROUPED).flat();
+
+const SHARED_GROWTH_GROUPED: Record<string, string[]> = {
+  "Core Relationships": [
+    "Spouse", "Partner", "Wife", "Husband", "Child", "Parent", "Sibling", "Extended Family",
+    "Close Friend", "Inner Circle Friend",
+  ],
+  "Work & Professional": [
+    "Business Partner", "Co-Founder", "Manager", "Direct Report", "Teammate", "Client",
+    "Mentor", "Mentee", "Advisor",
+  ],
+  "Growth & Development": [
+    "Coach", "Therapist", "Spiritual Guide", "Instructor", "Accountability Partner",
+    "Creative Collaborator",
+  ],
+  "Community": [
+    "Neighbor", "Volunteer Partner", "Faith Community Member", "Community Leader",
+  ],
+};
+
+const SHARED_GROWTH_FLAT = Object.values(SHARED_GROWTH_GROUPED).flat();
+
+const SITUATIONS_GROUPED: Record<string, string[]> = {
+  "Long-Term Build & Advancement": [
+    "Long-term goal", "Major project", "Strategic initiative", "Business build",
+    "Health transformation", "Personal transformation", "Financial objective", "Creative build",
+  ],
+  "Direction & Identity": [
+    "Career transition", "Life transition", "Big decision", "New direction", "Identity shift",
+  ],
+  "Relationships & Communication": [
+    "Difficult conversation", "Conflict", "Relationship tension", "Misalignment", "Boundary issue",
+  ],
+  "Growth & Expansion": [
+    "Scaling / expansion", "Skill development", "Leadership growth", "Stepping into new responsibility",
+  ],
+  "Performance & Execution": [
+    "Performance plateau", "Loss of momentum", "Accountability gap", "Focus problem",
+  ],
+  "Structure & Systems": [
+    "System breakdown", "Role overload", "Priority misalignment", "Time pressure",
+  ],
+  "Energy & Stability": [
+    "Burnout", "Stress overload", "Energy imbalance",
+  ],
+};
+
+const SITUATIONS_FLAT = Object.values(SITUATIONS_GROUPED).flat();
+
 const SUGGESTIONS: Record<string, string[]> = {
-  "life-roles": ["Parent", "Software Engineer", "Volunteer", "Friend", "Mentor", "Manager", "Teacher", "Coach", "Entrepreneur", "Student", "Caregiver", "Spouse"],
-  "shared-growth": ["Partner", "Team", "Kids", "Manager", "Direct reports", "Colleagues", "Mentor", "Family", "Friends", "Client", "Stakeholder"],
-  "situations": ["Career transition", "Difficult conversation", "New project", "Feedback session", "Conflict resolution", "Team restructure", "Salary negotiation", "Onboarding", "Performance review", "Project deadline", "Remote work", "New role"],
+  "life-roles": LIFE_ROLES_FLAT,
+  "shared-growth": SHARED_GROWTH_FLAT,
+  "situations": SITUATIONS_FLAT,
 };
 
 const CONTENT_ONLY_MODULES = ["life-roles", "shared-growth", "situations"];
@@ -268,12 +349,12 @@ function LinkedSummary({
 }: {
   activeItem: { moduleId: string; item: string };
   links: Set<string>;
-  moduleItems: Record<string, string[]>;
+  moduleItems: Record<string, ModuleItem[]>;
   linkKey: (srcMod: string, srcItem: string, tgtMod: string, tgtItem: string) => string;
 }) {
   const getLinkedFor = (targetModuleId: string) =>
     (moduleItems[targetModuleId] ?? []).filter((tgtItem) =>
-      links.has(linkKey(activeItem.moduleId, activeItem.item, targetModuleId, tgtItem))
+      links.has(linkKey(activeItem.moduleId, activeItem.item, targetModuleId, tgtItem.name))
     );
 
   const sections = (LINK_TARGETS[activeItem.moduleId] ?? []).map((targetModuleId) => {
@@ -296,10 +377,10 @@ function LinkedSummary({
           <div className="flex flex-wrap gap-2">
             {linked.map((item) => (
               <span
-                key={item}
+                key={item.id}
                 className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm text-white"
               >
-                {item} ✓
+                {item.name} ✓
               </span>
             ))}
           </div>
@@ -345,8 +426,8 @@ function ItemList({
   onItemClick?: (item: string) => void;
 }) {
   const shown = items.slice(0, maxCount);
-  const leftItems = shown.filter((_, i) => i % 6 < 3);
-  const rightItems = shown.filter((_, i) => i % 6 >= 3);
+  const leftItems = shown.filter((_, i) => i % 2 === 0);
+  const rightItems = shown.filter((_, i) => i % 2 === 1);
   const renderItem = (item: string) =>
     onItemClick ? (
       <button
@@ -379,28 +460,70 @@ function AddLightbox({
   moduleTitle,
   currentItems,
   suggestions,
+  groupedSuggestions,
   onAdd,
   onClose,
 }: {
   moduleTitle: string;
   currentItems: string[];
   suggestions: string[];
+  groupedSuggestions?: Record<string, string[]>;
   onAdd: (item: string) => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState("");
 
-  const trimmed = query.trim();
-  const matches = suggestions.filter(
-    (s) => !currentItems.includes(s) && (!trimmed || s.toLowerCase().includes(trimmed.toLowerCase()))
-  );
-  const exactMatchInSuggestions = trimmed && suggestions.some((s) => s.toLowerCase() === trimmed.toLowerCase());
-  const canAddNew = trimmed && !currentItems.includes(trimmed) && !exactMatchInSuggestions;
+  const trimmed = query.trim().toLowerCase();
+  const matchesFilter = (s: string) =>
+    !currentItems.includes(s) && (!trimmed || s.toLowerCase().includes(trimmed));
+  const exactMatchInSuggestions = trimmed && suggestions.some((s) => s.toLowerCase() === trimmed);
+  const canAddNew = query.trim() && !currentItems.includes(query.trim()) && !exactMatchInSuggestions;
 
   const handleSelect = (item: string) => {
     onAdd(item);
     onClose();
   };
+
+  const renderMatches = () => {
+    if (groupedSuggestions) {
+      return Object.entries(groupedSuggestions).map(([groupName, items]) => {
+        const groupMatches = items.filter(matchesFilter);
+        if (groupMatches.length === 0) return null;
+        return (
+          <div key={groupName}>
+            <div className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-white/50 bg-white/5">
+              {groupName}
+            </div>
+            {groupMatches.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => handleSelect(s)}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-white/90 hover:bg-white/10 hover:text-white"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        );
+      });
+    }
+    const flatMatches = suggestions.filter(matchesFilter);
+    return flatMatches.map((s) => (
+      <button
+        key={s}
+        type="button"
+        onClick={() => handleSelect(s)}
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-white/90 hover:bg-white/10 hover:text-white"
+      >
+        {s}
+      </button>
+    ));
+  };
+
+  const hasMatches = groupedSuggestions
+    ? Object.values(groupedSuggestions).some((items) => items.some(matchesFilter))
+    : suggestions.some(matchesFilter);
 
   return (
     <Lightbox title={`Add ${moduleTitle}`} onClose={onClose} maxWidth={400}>
@@ -412,29 +535,20 @@ function AddLightbox({
           placeholder="Type to search or add new…"
           className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white placeholder:text-white/40"
         />
-        <div className="max-h-64 overflow-auto rounded-lg border border-white/10">
+        <div className="max-h-80 overflow-auto rounded-lg border border-white/10">
           <div className="divide-y divide-white/10">
             {canAddNew && (
               <button
                 type="button"
-                onClick={() => handleSelect(trimmed)}
+                onClick={() => handleSelect(query.trim())}
                 className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-emerald-400 hover:bg-white/10"
               >
-                + Add new: {trimmed}
+                + Add new: {query.trim()}
               </button>
             )}
-            {matches.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => handleSelect(s)}
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-white/90 hover:bg-white/10 hover:text-white"
-              >
-                {s}
-              </button>
-            ))}
-            {matches.length === 0 && !canAddNew && !trimmed && (
-              <div className="px-3 py-4 text-center text-sm text-white/50">Type to search suggestions</div>
+            {renderMatches()}
+            {!hasMatches && !canAddNew && !trimmed && (
+              <div className="px-3 py-4 text-center text-sm text-white/50">Type to search or add a new role</div>
             )}
           </div>
         </div>
@@ -501,7 +615,13 @@ function ModuleCard({
   );
 }
 
-const initialItems = Object.fromEntries(MODULES.map((m) => [m.id, [...m.items]]));
+type ModuleItem = { id: string; name: string };
+
+const emptyModuleItems: Record<string, ModuleItem[]> = {
+  "life-roles": [],
+  "shared-growth": [],
+  "situations": [],
+};
 
 type RightPanelView =
   | { type: "dashboard" }
@@ -510,26 +630,89 @@ type RightPanelView =
 export default function DashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [moduleItems, setModuleItems] = useState<Record<string, string[]>>(initialItems);
+  const [moduleItems, setModuleItems] = useState<Record<string, ModuleItem[]>>(emptyModuleItems);
   const [rightPanel, setRightPanel] = useState<RightPanelView>({ type: "dashboard" });
   const [addLightboxModuleId, setAddLightboxModuleId] = useState<string | null>(null);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [links, setLinks] = useState<Set<string>>(new Set());
   const [situationPrincipleContent, setSituationPrincipleContentState] = useState<Record<string, string>>({});
   const [openPrincipleId, setOpenPrincipleId] = useState<string | null>(null);
 
+  const getItemId = (moduleId: string, name: string) =>
+    (moduleItems[moduleId] ?? []).find((i) => i.name === name)?.id;
+
+  const linkKey = (srcMod: string, srcItem: string, tgtMod: string, tgtItem: string) => {
+    const fromId = getItemId(srcMod, srcItem);
+    const toId = getItemId(tgtMod, tgtItem);
+    if (!fromId || !toId) return "";
+    return `${fromId}|${toId}`;
+  };
+
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         router.replace("/auth/login?next=/dashboard");
+        setLoading(false);
+        return;
       }
+      const { data: itemsRows } = await supabase
+        .from("module_items")
+        .select("id, module_id, name, sort_order")
+        .eq("user_id", user.id)
+        .order("sort_order");
+      const { data: linksRows } = await supabase
+        .from("links")
+        .select("from_item_id, to_item_id")
+        .eq("user_id", user.id);
+      const { data: spcRows } = await supabase
+        .from("situation_principle_content")
+        .select("situation_item_id, principle_id, content")
+        .eq("user_id", user.id);
+
+      const itemsByModule: Record<string, ModuleItem[]> = {
+        "life-roles": [],
+        "shared-growth": [],
+        "situations": [],
+      };
+      const idToName: Record<string, string> = {};
+      (itemsRows ?? []).forEach((r) => {
+        const arr = itemsByModule[r.module_id as string] ?? [];
+        arr.push({ id: r.id, name: r.name });
+        itemsByModule[r.module_id as string] = arr;
+        idToName[r.id] = r.name;
+      });
+      setModuleItems(itemsByModule);
+
+      const linkSet = new Set<string>();
+      (linksRows ?? []).forEach((r) => linkSet.add(`${r.from_item_id}|${r.to_item_id}`));
+      setLinks(linkSet);
+
+      const spc: Record<string, string> = {};
+      (spcRows ?? []).forEach((r) => {
+        const situationName = idToName[r.situation_item_id];
+        if (situationName) spc[`${situationName}|${r.principle_id}`] = r.content ?? "";
+      });
+      setSituationPrincipleContentState(spc);
       setLoading(false);
-    });
+    })();
   }, [router]);
 
-  const setSituationPrincipleContent = (situation: string, principle: string, content: string) => {
+  const setSituationPrincipleContent = async (situation: string, principle: string, content: string) => {
     setSituationPrincipleContentState((prev) => ({ ...prev, [`${situation}|${principle}`]: content }));
+    const situationItemId = getItemId("situations", situation);
+    if (!situationItemId) return;
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase
+      .from("situation_principle_content")
+      .upsert(
+        { user_id: user.id, situation_item_id: situationItemId, principle_id: principle, content },
+        { onConflict: "user_id,situation_item_id,principle_id" }
+      );
   };
 
   const handleSignOut = async () => {
@@ -541,12 +724,22 @@ export default function DashboardPage() {
 
   const activeItem = rightPanel.type === "item-detail" ? rightPanel : null;
 
-  const addItem = (moduleId: string, item: string) => {
-    setModuleItems((prev) => {
-      const list = prev[moduleId] ?? [];
-      if (list.includes(item)) return prev;
-      return { ...prev, [moduleId]: [...list, item] };
-    });
+  const addItem = async (moduleId: string, item: string) => {
+    const list = moduleItems[moduleId] ?? [];
+    if (list.some((i) => i.name === item)) return;
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: inserted, error } = await supabase
+      .from("module_items")
+      .insert({ user_id: user.id, module_id: moduleId, name: item, sort_order: list.length })
+      .select("id, name")
+      .single();
+    if (error) return;
+    setModuleItems((prev) => ({
+      ...prev,
+      [moduleId]: [...(prev[moduleId] ?? []), { id: inserted.id, name: inserted.name }],
+    }));
   };
 
   const handleItemClick = (item: string, moduleId: string) => {
@@ -562,21 +755,94 @@ export default function DashboardPage() {
     );
   };
 
-  const linkKey = (srcMod: string, srcItem: string, tgtMod: string, tgtItem: string) =>
-    `${srcMod}|${srcItem}|${tgtMod}|${tgtItem}`;
-
   const isLinked = (targetModuleId: string, targetItem: string) =>
     !!activeItem && links.has(linkKey(activeItem.moduleId, activeItem.item, targetModuleId, targetItem));
 
-  const toggleLink = (targetModuleId: string, targetItem: string) => {
+  const toggleLink = async (targetModuleId: string, targetItem: string) => {
     if (!activeItem) return;
-    const key = linkKey(activeItem.moduleId, activeItem.item, targetModuleId, targetItem);
+    const fromId = getItemId(activeItem.moduleId, activeItem.item);
+    const toId = getItemId(targetModuleId, targetItem);
+    if (!fromId || !toId) return;
+    const key = `${fromId}|${toId}`;
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const linked = links.has(key);
+    if (linked) {
+      await supabase
+        .from("links")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("from_item_id", fromId)
+        .eq("to_item_id", toId);
+    } else {
+      await supabase.from("links").insert({
+        user_id: user.id,
+        from_item_id: fromId,
+        to_item_id: toId,
+      });
+    }
     setLinks((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
       return next;
     });
+  };
+
+  const updateItemName = async (moduleId: string, currentName: string, newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === currentName) return;
+    const itemObj = (moduleItems[moduleId] ?? []).find((i) => i.name === currentName);
+    if (!itemObj) return;
+    const supabase = createClient();
+    await supabase.from("module_items").update({ name: trimmed }).eq("id", itemObj.id);
+    setModuleItems((prev) => ({
+      ...prev,
+      [moduleId]: (prev[moduleId] ?? []).map((i) =>
+        i.id === itemObj.id ? { ...i, name: trimmed } : i
+      ),
+    }));
+    setRightPanel((prev) =>
+      prev.type === "item-detail" && prev.item === currentName ? { ...prev, item: trimmed } : prev
+    );
+  };
+
+  const handleRemoveConfirm = () => {
+    if (rightPanel.type === "item-detail") {
+      removeItem(rightPanel.moduleId, rightPanel.item);
+      setShowRemoveConfirm(false);
+    }
+  };
+
+  const removeItem = async (moduleId: string, item: string) => {
+    const itemObj = (moduleItems[moduleId] ?? []).find((i) => i.name === item);
+    if (!itemObj) return;
+    const supabase = createClient();
+    await supabase.from("module_items").delete().eq("id", itemObj.id);
+    setModuleItems((prev) => ({
+      ...prev,
+      [moduleId]: (prev[moduleId] ?? []).filter((i) => i.id !== itemObj.id),
+    }));
+    setLinks((prev) => {
+      const next = new Set<string>();
+      prev.forEach((key) => {
+        const [fromId, toId] = key.split("|");
+        if (fromId === itemObj.id || toId === itemObj.id) return;
+        next.add(key);
+      });
+      return next;
+    });
+    if (moduleId === "situations") {
+      setSituationPrincipleContentState((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((k) => {
+          if (k.startsWith(`${item}|`)) delete next[k];
+        });
+        return next;
+      });
+    }
+    backToDashboard();
   };
 
   const showFullPlan = rightPanel.type === "item-detail" && rightPanel.moduleId === "situations";
@@ -631,7 +897,7 @@ export default function DashboardPage() {
                 moduleId={m.id}
                 title={m.title}
                 description={m.description}
-                items={moduleItems[m.id] ?? []}
+                items={(moduleItems[m.id] ?? []).map((i) => i.name)}
                 onItemClick={CONTENT_ONLY_MODULES.includes(m.id) ? (item) => handleItemClick(item, m.id) : undefined}
                 onAdd={() => setAddLightboxModuleId(m.id)}
               />
@@ -642,21 +908,32 @@ export default function DashboardPage() {
         {rightPanel.type === "item-detail" && (
           <RightPanel title={rightPanel.item} onBack={backToDashboard}>
             <div className="flex flex-col gap-6">
-              <label className="text-sm text-white/80">
-                Name
-                <input
-                  type="text"
-                  value={editedName}
-                  onChange={(e) => setEditedName(e.target.value)}
-                  className="mt-1 block w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white"
-                />
-              </label>
+              <div className="relative">
+                <label className="text-sm text-white/80">
+                  Name
+                  <input
+                    type="text"
+                    value={editedName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    onBlur={() => updateItemName(rightPanel.moduleId, rightPanel.item, editedName)}
+                    className="mt-1 block w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 pr-8 text-white"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowRemoveConfirm(true)}
+                  className="absolute bottom-2 right-2 text-red-400 hover:text-red-300 text-lg leading-none"
+                  aria-label="Remove"
+                >
+                  ×
+                </button>
+              </div>
 
               {rightPanel.mode === "editing" ? (
                 <>
                   {(LINK_TARGETS[rightPanel.moduleId] ?? []).map((targetModuleId) => {
                     const targetModule = MODULES.find((m) => m.id === targetModuleId);
-                    const items = moduleItems[targetModuleId] ?? [];
+                    const items = (moduleItems[targetModuleId] ?? []).map((i) => i.name);
                     if (!targetModule) return null;
                     return (
                       <LinkSection
@@ -716,11 +993,49 @@ export default function DashboardPage() {
       {addLightboxModuleId && (
         <AddLightbox
           moduleTitle={MODULES.find((m) => m.id === addLightboxModuleId)?.title ?? ""}
-          currentItems={moduleItems[addLightboxModuleId] ?? []}
+          currentItems={(moduleItems[addLightboxModuleId] ?? []).map((i) => i.name)}
           suggestions={SUGGESTIONS[addLightboxModuleId] ?? []}
+          groupedSuggestions={
+            addLightboxModuleId === "life-roles" ? LIFE_ROLES_GROUPED :
+            addLightboxModuleId === "shared-growth" ? SHARED_GROWTH_GROUPED :
+            addLightboxModuleId === "situations" ? SITUATIONS_GROUPED :
+            undefined
+          }
           onAdd={(item) => addItem(addLightboxModuleId, item)}
           onClose={() => setAddLightboxModuleId(null)}
         />
+      )}
+
+      {showRemoveConfirm && rightPanel.type === "item-detail" && (
+        <Lightbox
+          title="Remove"
+          onClose={() => setShowRemoveConfirm(false)}
+          maxWidth={420}
+        >
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-white/90 leading-relaxed">
+              {rightPanel.moduleId === "situations"
+                ? "Removing this situation will remove any links to Life Roles and Shared Growth, and will permanently delete all notes and content you've added for this situation."
+                : "Removing this will remove any linked items."}
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowRemoveConfirm(false)}
+                className="rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRemoveConfirm}
+                className="rounded-lg border border-red-500/50 bg-red-500/20 px-4 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/30"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </Lightbox>
       )}
       </div>
 
