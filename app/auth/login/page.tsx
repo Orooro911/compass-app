@@ -18,6 +18,11 @@ export default function LoginPage() {
     setMessage(null);
     const supabase = createClient();
 
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+      setMessage({ type: "error", text: "Request timed out. Check your connection and try again." });
+    }, 15000);
+
     try {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
@@ -40,6 +45,7 @@ export default function LoginPage() {
         text: err instanceof Error ? err.message : "Something went wrong.",
       });
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
