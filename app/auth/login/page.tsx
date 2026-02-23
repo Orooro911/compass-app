@@ -16,6 +16,13 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setMessage(null);
+
+    if (typeof window !== "undefined" && (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)) {
+      setLoading(false);
+      setMessage({ type: "error", text: "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel and redeploy." });
+      return;
+    }
+
     const supabase = createClient();
 
     const timeoutId = setTimeout(() => {
