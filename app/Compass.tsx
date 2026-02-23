@@ -590,17 +590,18 @@ export default function Compass({
         boxShadow: "0 20px 70px rgba(0,0,0,0.6)",
         position: "relative",
         padding: 18,
+        paddingTop: 6,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: 20,
+        gap: 4,
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "center", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "flex-start", alignSelf: "flex-start", gap: 6 }}>
         <h1
           style={{
             margin: 0,
-            fontSize: "clamp(28px, 4.5vw, 36px)",
+            fontSize: "clamp(18px, 2.5vw, 22px)",
             fontWeight: 600,
             color: "rgba(255,255,255,0.95)",
             letterSpacing: "0.02em",
@@ -613,14 +614,14 @@ export default function Compass({
           onClick={openCompassTitleLightbox}
           aria-label="More information about The Compass"
           style={{
-            width: 20,
-            height: 20,
-            marginTop: 6,
+            width: 14,
+            height: 14,
+            marginTop: 4,
             borderRadius: "50%",
             border: "1px solid rgba(255,255,255,0.4)",
             background: "white",
             color: "#111",
-            fontSize: 13,
+            fontSize: 10,
             fontWeight: 700,
             cursor: "pointer",
             display: "flex",
@@ -637,7 +638,7 @@ export default function Compass({
       <div style={{ width: "100%", aspectRatio: "1 / 1", flexShrink: 0 }}>
       {/* The Compass Drawing (SVG) — click role labels in the graphic to rotate */}
       <svg
-        viewBox="-220 -220 440 440"
+        viewBox="-220 -195 440 415"
         style={{
           width: "100%",
           height: "100%",
