@@ -1,17 +1,16 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import { useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-function LoginForm() {
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,7 +30,7 @@ function LoginForm() {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        const next = searchParams.get("next") ?? "/dashboard";
+        const next = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") ?? "/dashboard" : "/dashboard";
         router.push(next);
         router.refresh();
       }
@@ -46,6 +45,7 @@ function LoginForm() {
   };
 
   return (
+    <main className="min-h-screen bg-[#0b0b0c] flex items-center justify-center p-6">
     <div
       className="w-full max-w-sm rounded-xl border border-white/20 p-8"
       style={{ background: "rgba(255,255,255,0.04)" }}
@@ -103,15 +103,6 @@ function LoginForm() {
         {isSignUp ? "Already have an account? Sign in" : "Need an account? Sign up"}
       </button>
     </div>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <main className="min-h-screen bg-[#0b0b0c] flex items-center justify-center p-6">
-      <Suspense fallback={<div className="w-full max-w-sm rounded-xl border border-white/20 p-8 text-center text-white/60">Loading…</div>}>
-        <LoginForm />
-      </Suspense>
     </main>
   );
 }
