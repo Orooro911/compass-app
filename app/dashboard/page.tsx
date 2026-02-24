@@ -744,14 +744,13 @@ const MODULES_TABS: { id: ModulesTabId; label: string; moduleIds: string[] }[] =
 type RightPanelView =
   | { type: "dashboard" }
   | { type: "item-detail"; item: string; moduleId: string; mode: "editing" | "summary" }
-  | { type: "add-item"; moduleId: "life-roles" | "shared-growth" };
+  | { type: "add-item"; moduleId: "life-roles" | "shared-growth" | "situations" | "wants" | "transformations" };
 
 export default function DashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [moduleItems, setModuleItems] = useState<Record<string, ModuleItem[]>>(emptyModuleItems);
   const [rightPanel, setRightPanel] = useState<RightPanelView>({ type: "dashboard" });
-  const [addLightboxModuleId, setAddLightboxModuleId] = useState<string | null>(null);
   const [addUnderParentId, setAddUnderParentId] = useState<string | null>(null);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
@@ -1241,7 +1240,12 @@ export default function DashboardPage() {
                     topLevelItems={(moduleItems[m.id] ?? []).filter((i) => !i.parent_item_id)}
                     getChildren={getChildren}
                     onItemClick={handleItemClick}
-                    onAdd={() => setAddLightboxModuleId(m.id)}
+                    onAdd={() => {
+                      setAddUnderParentId(null);
+                      setLinkNewItemTo(null);
+                      setAddItemDraft("");
+                      setRightPanel({ type: "add-item", moduleId: m.id });
+                    }}
                   />
                 ) : (
                   <ModuleCard
@@ -1260,12 +1264,10 @@ export default function DashboardPage() {
                       .map((i) => i.name)}
                     onItemClick={CONTENT_ONLY_MODULES.includes(m.id) ? (item) => handleItemClick(item, m.id) : undefined}
                     onAdd={() => {
-                      if (m.id === "life-roles" || m.id === "shared-growth") {
-                        setAddItemDraft("");
-                        setRightPanel({ type: "add-item", moduleId: m.id });
-                      } else {
-                        setAddLightboxModuleId(m.id);
-                      }
+                      setAddUnderParentId(null);
+                      setLinkNewItemTo(null);
+                      setAddItemDraft("");
+                      setRightPanel({ type: "add-item", moduleId: m.id });
                     }}
                   />
                 );
@@ -1276,18 +1278,31 @@ export default function DashboardPage() {
 
         {rightPanel.type === "add-item" && (() => {
           const moduleId = rightPanel.moduleId;
-          const moduleTitle = moduleId === "life-roles" ? "Life Role" : "Shared Growth";
+          const moduleTitles: Record<string, string> = {
+            "life-roles": "Life Role",
+            "shared-growth": "Shared Growth",
+            situations: "Situation",
+            wants: "Want",
+            transformations: "Transformation",
+          };
+          const moduleTitle = moduleTitles[moduleId] ?? moduleId;
           const currentItems = (moduleItems[moduleId] ?? []).map((i) => i.name);
-          const grouped = moduleId === "life-roles" ? LIFE_ROLES_GROUPED : SHARED_GROWTH_GROUPED;
-          const suggestions = moduleId === "life-roles" ? LIFE_ROLES_FLAT : SHARED_GROWTH_FLAT;
+          const grouped = moduleId === "life-roles" ? LIFE_ROLES_GROUPED : moduleId === "shared-growth" ? SHARED_GROWTH_GROUPED : SITUATIONS_GROUPED;
+          const suggestions = (SUGGESTIONS[moduleId] ?? []) as string[];
           const trimmed = addItemDraft.trim().toLowerCase();
           const matchesFilter = (s: string) =>
             !currentItems.includes(s) && (!trimmed || s.toLowerCase().includes(trimmed));
           const exactMatch = trimmed && suggestions.some((s) => s.toLowerCase() === trimmed);
           const canAddNew = addItemDraft.trim() && !currentItems.includes(addItemDraft.trim()) && !exactMatch;
 
-          const handleAddSelect = (name: string) => {
-            addItem(moduleId, name);
+          const handleAddSelect = async (name: string) => {
+            const newId = await addItem(moduleId, name, addUnderParentId ?? undefined);
+            if (linkNewItemTo && newId) {
+              const fromId = getItemId(linkNewItemTo.moduleId, linkNewItemTo.item);
+              if (fromId) await ensureLinkById(fromId, newId);
+              setLinkNewItemTo(null);
+            }
+            setAddUnderParentId(null);
             setEditedName(name);
             setRightPanel({ type: "item-detail", item: name, moduleId, mode: "editing" });
             setAddItemDraft("");
@@ -1296,7 +1311,7 @@ export default function DashboardPage() {
           return (
             <RightPanel
               title={`Add ${moduleTitle}`}
-              onBack={() => { setRightPanel({ type: "dashboard" }); setAddItemDraft(""); }}
+              onBack={() => { setRightPanel({ type: "dashboard" }); setAddItemDraft(""); setAddUnderParentId(null); setLinkNewItemTo(null); }}
             >
               <div className="flex flex-col gap-4">
                 <label className="text-sm text-white/80">
@@ -1342,7 +1357,7 @@ export default function DashboardPage() {
                   })}
                   {!Object.values(grouped).some((items) => items.some(matchesFilter)) && !canAddNew && !trimmed && (
                     <div className="px-3 py-4 text-center text-sm text-white/50">
-                      Type to search or add a new {moduleId === "life-roles" ? "role" : "person"}
+                      Type to search or add a new {moduleId === "life-roles" ? "role" : moduleId === "shared-growth" ? "person" : "situation, want, or transformation"}
                     </div>
                   )}
                 </div>
@@ -1389,7 +1404,9 @@ export default function DashboardPage() {
                 const byModule = { situations: swt.filter((x) => x.moduleId === "situations"), wants: swt.filter((x) => x.moduleId === "wants"), transformations: swt.filter((x) => x.moduleId === "transformations") };
                 const addFromSummary = (moduleId: "situations" | "wants" | "transformations") => {
                   setLinkNewItemTo({ moduleId: rightPanel.moduleId, item: rightPanel.item });
-                  setAddLightboxModuleId(moduleId);
+                  setAddUnderParentId(null);
+                  setAddItemDraft("");
+                  setRightPanel({ type: "add-item", moduleId });
                 };
                 const Section = ({ title, items, addModuleId, addLabel }: { title: string; items: { id: string; moduleId: string; name: string }[]; addModuleId: "situations" | "wants" | "transformations"; addLabel: string }) => (
                   <div className="rounded-lg border border-white/10 p-4">
@@ -1453,7 +1470,7 @@ export default function DashboardPage() {
                           <h3 className="text-sm font-medium text-white/90">Nested {childModule?.title ?? ""}</h3>
                           <button
                             type="button"
-                            onClick={() => { setAddUnderParentId(currentItem!.id); setAddLightboxModuleId(childModuleId); }}
+                            onClick={() => { setAddUnderParentId(currentItem!.id); setLinkNewItemTo(null); setAddItemDraft(""); setRightPanel({ type: "add-item", moduleId: childModuleId }); }}
                             className="text-xs text-white/60 hover:text-white"
                           >
                             + Add {childModuleId === "situations" ? "situation" : "want"} under this
@@ -1516,7 +1533,12 @@ export default function DashboardPage() {
                         items={items}
                         isLinked={isLinked}
                         toggleLink={toggleLink}
-                        onAdd={(id) => setAddLightboxModuleId(id)}
+                        onAdd={(id) => {
+                          setLinkNewItemTo(rightPanel.type === "item-detail" ? { moduleId: rightPanel.moduleId, item: rightPanel.item } : null);
+                          setAddUnderParentId(null);
+                          setAddItemDraft("");
+                          setRightPanel({ type: "add-item", moduleId: id });
+                        }}
                       />
                     );
                   })}
@@ -1562,30 +1584,6 @@ export default function DashboardPage() {
           </RightPanel>
         )}
       </div>
-
-      {addLightboxModuleId && (
-        <AddLightbox
-          moduleTitle={MODULES.find((m) => m.id === addLightboxModuleId)?.title ?? ""}
-          currentItems={(moduleItems[addLightboxModuleId] ?? []).map((i) => i.name)}
-          suggestions={SUGGESTIONS[addLightboxModuleId] ?? []}
-          groupedSuggestions={
-            addLightboxModuleId === "life-roles" ? LIFE_ROLES_GROUPED :
-            addLightboxModuleId === "shared-growth" ? SHARED_GROWTH_GROUPED :
-            (addLightboxModuleId === "situations" || addLightboxModuleId === "wants" || addLightboxModuleId === "transformations") ? SITUATIONS_GROUPED :
-            undefined
-          }
-          onAdd={async (item) => {
-            const newId = await addItem(addLightboxModuleId, item, addUnderParentId);
-            if (linkNewItemTo && newId) {
-              const fromId = getItemId(linkNewItemTo.moduleId, linkNewItemTo.item);
-              if (fromId) await ensureLinkById(fromId, newId);
-              setLinkNewItemTo(null);
-            }
-            setAddUnderParentId(null);
-          }}
-          onClose={() => { setAddLightboxModuleId(null); setAddUnderParentId(null); setLinkNewItemTo(null); }}
-        />
-      )}
 
       {showMoveModal && rightPanel.type === "item-detail" && (() => {
         const currentItem = (moduleItems[rightPanel.moduleId] ?? []).find((i) => i.name === rightPanel.item);
