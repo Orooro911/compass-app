@@ -166,7 +166,7 @@ function Lightbox({
             ×
           </button>
         </div>
-        <div className="px-6 py-5">{children}</div>
+        <div className="px-10 py-6">{children}</div>
       </div>
     </div>
   );
@@ -575,6 +575,7 @@ function ModuleCard({
   items,
   onItemClick,
   onAdd,
+  onInfoClick,
 }: {
   moduleId: string;
   title: string;
@@ -582,6 +583,7 @@ function ModuleCard({
   items: string[];
   onItemClick?: (item: string) => void;
   onAdd: () => void;
+  onInfoClick?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasMore = items.length > 6;
@@ -589,7 +591,19 @@ function ModuleCard({
   return (
     <div className="rounded-xl border border-white/20 bg-white/5 p-5 text-left transition-colors hover:bg-white/5 hover:border-white/30">
       <div className="flex items-center justify-between gap-3 mb-2">
-        <h2 className="text-lg font-semibold text-white">{title}</h2>
+        <div className="flex items-center gap-2 min-w-0">
+          <h2 className="text-lg font-semibold text-white">{title}</h2>
+          {onInfoClick != null && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onInfoClick(); }}
+              className="shrink-0 w-[15px] h-[15px] rounded-full border border-white/40 bg-white text-black flex items-center justify-center text-[10px] font-semibold leading-none hover:bg-white/90"
+              aria-label="More information"
+            >
+              i
+            </button>
+          )}
+        </div>
         <button
           type="button"
           onClick={onAdd}
@@ -638,6 +652,7 @@ function NestingModuleCard({
   getChildren,
   onItemClick,
   onAdd,
+  onInfoClick,
 }: {
   moduleId: "wants" | "transformations";
   title: string;
@@ -645,7 +660,8 @@ function NestingModuleCard({
   topLevelItems: ModuleItem[];
   getChildren: (parentId: string, childModuleId: string) => ModuleItem[];
   onItemClick: (item: string, moduleId: string) => void;
-  onAdd: () => void;
+  onAdd?: () => void;
+  onInfoClick?: () => void;
 }) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
@@ -699,19 +715,33 @@ function NestingModuleCard({
   return (
     <div className="rounded-xl border border-white/20 bg-white/5 p-5 text-left transition-colors hover:bg-white/5 hover:border-white/30">
       <div className="flex items-center justify-between gap-3 mb-2">
-        <h2 className="text-lg font-semibold text-white">{title}</h2>
-        <button
-          type="button"
-          onClick={onAdd}
-          className="shrink-0 rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
-        >
-          + Add
-        </button>
+        <div className="flex items-center gap-2 min-w-0">
+          <h2 className="text-lg font-semibold text-white">{title}</h2>
+          {onInfoClick != null && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onInfoClick(); }}
+              className="shrink-0 w-[15px] h-[15px] rounded-full border border-white/40 bg-white text-black flex items-center justify-center text-[10px] font-semibold leading-none hover:bg-white/90"
+              aria-label="More information"
+            >
+              i
+            </button>
+          )}
+        </div>
+        {onAdd != null && (
+          <button
+            type="button"
+            onClick={onAdd}
+            className="shrink-0 rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
+          >
+            + Add
+          </button>
+        )}
       </div>
       <p className="text-sm text-white/80 leading-relaxed mb-3">{description}</p>
       <div className="space-y-0">
         {topLevelItems.length === 0 ? (
-          <p className="text-sm text-white/50">None yet. Add one above.</p>
+          <p className="text-sm text-white/50">None yet.{onAdd != null ? " Add one above." : " Promote a situation to add one."}</p>
         ) : (
           topLevelItems.map((item) => renderRow(item, moduleId, 0))
         )}
@@ -761,6 +791,11 @@ export default function DashboardPage() {
   const [modulesTab, setModulesTab] = useState<ModulesTabId>("work");
   const [addItemDraft, setAddItemDraft] = useState("");
   const [linkNewItemTo, setLinkNewItemTo] = useState<{ moduleId: string; item: string } | null>(null);
+  const [showSituationsInfo, setShowSituationsInfo] = useState(false);
+  const [showWantsInfo, setShowWantsInfo] = useState(false);
+  const [showTransformationsInfo, setShowTransformationsInfo] = useState(false);
+  const [showLifeRolesInfo, setShowLifeRolesInfo] = useState(false);
+  const [showSharedGrowthInfo, setShowSharedGrowthInfo] = useState(false);
 
   const getItemId = (moduleId: string, name: string) =>
     (moduleItems[moduleId] ?? []).find((i) => i.name === name)?.id;
@@ -941,6 +976,14 @@ export default function DashboardPage() {
       else if (b === itemId) out.push(a);
     });
     return out;
+  };
+
+  /** True when the item has content in all three Level 1 principles (P1, P2, P3). Used to gate promotion to Want/Transformation. */
+  const hasCompletedLevel1 = (moduleId: string, itemName: string): boolean => {
+    const p1 = (itemPrincipleContent[`${moduleId}|${itemName}|P1`] ?? "").trim();
+    const p2 = (itemPrincipleContent[`${moduleId}|${itemName}|P2`] ?? "").trim();
+    const p3 = (itemPrincipleContent[`${moduleId}|${itemName}|P3`] ?? "").trim();
+    return p1.length > 0 && p2.length > 0 && p3.length > 0;
   };
 
   const getAllItemIds = () => {
@@ -1240,12 +1283,7 @@ export default function DashboardPage() {
                     topLevelItems={(moduleItems[m.id] ?? []).filter((i) => !i.parent_item_id)}
                     getChildren={getChildren}
                     onItemClick={handleItemClick}
-                    onAdd={() => {
-                      setAddUnderParentId(null);
-                      setLinkNewItemTo(null);
-                      setAddItemDraft("");
-                      setRightPanel({ type: "add-item", moduleId: m.id });
-                    }}
+                    onInfoClick={m.id === "wants" ? () => setShowWantsInfo(true) : m.id === "transformations" ? () => setShowTransformationsInfo(true) : undefined}
                   />
                 ) : (
                   <ModuleCard
@@ -1267,8 +1305,9 @@ export default function DashboardPage() {
                       setAddUnderParentId(null);
                       setLinkNewItemTo(null);
                       setAddItemDraft("");
-                      setRightPanel({ type: "add-item", moduleId: m.id });
+                      setRightPanel({ type: "add-item", moduleId: m.id } as RightPanelView);
                     }}
+                    onInfoClick={m.id === "life-roles" ? () => setShowLifeRolesInfo(true) : m.id === "shared-growth" ? () => setShowSharedGrowthInfo(true) : m.id === "situations" ? () => setShowSituationsInfo(true) : undefined}
                   />
                 );
               })}
@@ -1408,17 +1447,31 @@ export default function DashboardPage() {
                   setAddItemDraft("");
                   setRightPanel({ type: "add-item", moduleId });
                 };
-                const Section = ({ title, items, addModuleId, addLabel }: { title: string; items: { id: string; moduleId: string; name: string }[]; addModuleId: "situations" | "wants" | "transformations"; addLabel: string }) => (
+                const Section = ({ title, items, addModuleId, addLabel, showAddButton, onInfoClick }: { title: string; items: { id: string; moduleId: string; name: string }[]; addModuleId: "situations" | "wants" | "transformations"; addLabel: string; showAddButton: boolean; onInfoClick?: () => void }) => (
                   <div className="rounded-lg border border-white/10 p-4">
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <h3 className="text-sm font-medium text-white/90">{title}</h3>
-                      <button
-                        type="button"
-                        onClick={() => addFromSummary(addModuleId)}
-                        className="text-xs text-white/60 hover:text-white whitespace-nowrap"
-                      >
-                        + Add {addLabel}
-                      </button>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <h3 className="text-sm font-medium text-white/90">{title}</h3>
+                        {onInfoClick != null && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onInfoClick(); }}
+                            className="shrink-0 w-[15px] h-[15px] rounded-full border border-white/40 bg-white text-black flex items-center justify-center text-[10px] font-semibold leading-none hover:bg-white/90"
+                            aria-label="More information"
+                          >
+                            i
+                          </button>
+                        )}
+                      </div>
+                      {showAddButton && (
+                        <button
+                          type="button"
+                          onClick={() => addFromSummary(addModuleId)}
+                          className="text-xs text-white/60 hover:text-white whitespace-nowrap"
+                        >
+                          + Add {addLabel}
+                        </button>
+                      )}
                     </div>
                     {items.length === 0 ? (
                       <p className="text-sm text-white/50">None yet.</p>
@@ -1447,9 +1500,9 @@ export default function DashboardPage() {
                 );
                 return (
                   <div className="flex flex-col gap-4">
-                    <Section title="Situations" items={byModule.situations} addModuleId="situations" addLabel="situation" />
-                    <Section title="Wants" items={byModule.wants} addModuleId="wants" addLabel="want" />
-                    <Section title="Transformations" items={byModule.transformations} addModuleId="transformations" addLabel="transformation" />
+                    <Section title="Situations" items={byModule.situations} addModuleId="situations" addLabel="situation" showAddButton onInfoClick={() => setShowSituationsInfo(true)} />
+                    <Section title="Wants" items={byModule.wants} addModuleId="wants" addLabel="want" showAddButton={false} onInfoClick={() => setShowWantsInfo(true)} />
+                    <Section title="Transformations" items={byModule.transformations} addModuleId="transformations" addLabel="transformation" showAddButton={false} onInfoClick={() => setShowTransformationsInfo(true)} />
                     {swt.length === 0 && (
                       <p className="text-sm text-white/60 rounded-lg border border-white/10 p-4">
                         Add above and they’ll be linked to this {rightPanel.moduleId === "life-roles" ? "role" : "person"}.
@@ -1470,7 +1523,7 @@ export default function DashboardPage() {
                           <h3 className="text-sm font-medium text-white/90">Nested {childModule?.title ?? ""}</h3>
                           <button
                             type="button"
-                            onClick={() => { setAddUnderParentId(currentItem!.id); setLinkNewItemTo(null); setAddItemDraft(""); setRightPanel({ type: "add-item", moduleId: childModuleId }); }}
+                            onClick={() => { setAddUnderParentId(currentItem!.id); setLinkNewItemTo(null); setAddItemDraft(""); setRightPanel({ type: "add-item", moduleId: childModuleId } as RightPanelView); }}
                             className="text-xs text-white/60 hover:text-white"
                           >
                             + Add {childModuleId === "situations" ? "situation" : "want"} under this
@@ -1496,23 +1549,31 @@ export default function DashboardPage() {
                     );
                   })()}
                   {(["situations", "wants"].includes(rightPanel.moduleId)) && (
-                    <div className="flex flex-wrap gap-2">
-                      {rightPanel.moduleId === "situations" && (
-                        <button
-                          type="button"
-                          onClick={() => promoteItem(rightPanel.moduleId, rightPanel.item)}
-                          className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10"
-                        >
-                          Promote to Want
-                        </button>
-                      )}
-                      {rightPanel.moduleId === "wants" && (
+                    <div className="flex flex-wrap gap-2 items-center">
+                      {rightPanel.moduleId === "situations" && (() => {
+                        const canPromote = hasCompletedLevel1("situations", rightPanel.item);
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => canPromote && promoteItem(rightPanel.moduleId, rightPanel.item)}
+                            disabled={!canPromote}
+                            title={!canPromote ? "Add content in P1, P2, and P3 to promote." : undefined}
+                            className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                          >
+                            Promote to Want
+                          </button>
+                        );
+                      })()}
+                      {rightPanel.moduleId === "wants" && (() => {
+                        const canPromote = hasCompletedLevel1("wants", rightPanel.item);
+                        return (
                         <>
-                          <button type="button" onClick={() => promoteItem(rightPanel.moduleId, rightPanel.item)} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10">Promote to Transformation</button>
+                          <button type="button" onClick={() => canPromote && promoteItem(rightPanel.moduleId, rightPanel.item)} disabled={!canPromote} title={!canPromote ? "Add content in P1, P2, and P3 to promote." : undefined} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent">Promote to Transformation</button>
                           <button type="button" onClick={() => demoteItem(rightPanel.moduleId, rightPanel.item)} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10">Demote to Situation</button>
                           <button type="button" onClick={() => setShowMoveModal(true)} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10">Move to…</button>
                         </>
-                      )}
+                        );
+                      })()}
                       {rightPanel.moduleId === "transformations" && (
                         <button type="button" onClick={() => demoteItem(rightPanel.moduleId, rightPanel.item)} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10">Demote to Want</button>
                       )}
@@ -1533,11 +1594,11 @@ export default function DashboardPage() {
                         items={items}
                         isLinked={isLinked}
                         toggleLink={toggleLink}
-                        onAdd={(id) => {
+                        onAdd={(targetModuleId === "wants" || targetModuleId === "transformations") ? undefined : (id) => {
                           setLinkNewItemTo(rightPanel.type === "item-detail" ? { moduleId: rightPanel.moduleId, item: rightPanel.item } : null);
                           setAddUnderParentId(null);
                           setAddItemDraft("");
-                          setRightPanel({ type: "add-item", moduleId: id });
+                          setRightPanel({ type: "add-item", moduleId: id } as RightPanelView);
                         }}
                       />
                     );
@@ -1584,6 +1645,179 @@ export default function DashboardPage() {
           </RightPanel>
         )}
       </div>
+
+      {showLifeRolesInfo && (
+        <Lightbox title="Life Roles" onClose={() => setShowLifeRolesInfo(false)} maxWidth={720}>
+          <div className="space-y-5 text-[17px] text-white/90 leading-[1.6]">
+            <p className="m-0">
+              Life Roles are the front lines of your life.
+            </p>
+            <p className="m-0">
+              They are not abstract titles. They are the identities you carry week after week — the places where responsibility lives and where your decisions shape real outcomes.
+            </p>
+            <p className="m-0">
+              These roles may include parent, spouse, caregiver, team leader, business owner, friend, volunteer, investor, or any identity that consistently carries weight in your life.
+            </p>
+            <p className="m-0">
+              Choose roles that genuinely require your time, energy, and attention. Aim for four to five to start. Too many, and the signal gets lost. Too few, and you may overlook meaningful areas of responsibility.
+            </p>
+            <p className="m-0">
+              Life Roles are not the same as Compass Roles.
+            </p>
+            <p className="m-0">
+              Your Life Roles are the vessels of your life.
+            </p>
+            <p className="m-0">
+              The Compass Roles (Achiever, Leader, Partner, Follower) are the lenses you use to navigate within those vessels.
+            </p>
+            <p className="m-0">
+              Once your Life Roles are defined, the Compass helps you evaluate how you&apos;re showing up inside each one — and where alignment, attention, or adjustment may be needed.
+            </p>
+            <p className="m-0">
+              This is your structural anchor.
+            </p>
+          </div>
+        </Lightbox>
+      )}
+
+      {showSharedGrowthInfo && (
+        <Lightbox title="Shared Growth" onClose={() => setShowSharedGrowthInfo(false)} maxWidth={720}>
+          <div className="space-y-5 text-[17px] text-white/90 leading-[1.6]">
+            <p className="m-0">
+              Shared Growth represents the people whose direction is meaningfully connected to yours.
+            </p>
+            <p className="m-0">
+              This is not a contact list. It is not a social graph.
+            </p>
+            <p className="m-0">
+              Only add individuals or groups whose growth, decisions, and trajectory are intertwined with your own — people where responsibility flows both ways.
+            </p>
+            <p className="m-0">
+              A relationship belongs here when:
+            </p>
+            <ul className="list-disc pl-5 space-y-1 my-3">
+              <li>It has enduring relevance</li>
+              <li>Your choices affect one another</li>
+              <li>You intend to invest in the relationship over time</li>
+            </ul>
+            <p className="m-0">
+              If the connection is temporary, purely transactional, or requires no ongoing coordination, it does not belong here.
+            </p>
+            <p className="m-0">
+              Shared Growth allows you to apply the Compass relationally — to reflect not only on how you are operating, but how you are aligning, supporting, or building alongside others.
+            </p>
+            <p className="m-0">
+              Start with a small number of meaningful connections. What matters is not quantity, but weight.
+            </p>
+          </div>
+        </Lightbox>
+      )}
+
+      {showSituationsInfo && (
+        <Lightbox title="Situations" onClose={() => setShowSituationsInfo(false)} maxWidth={720}>
+          <div className="space-y-5 text-[17px] text-white/90 leading-[1.6]">
+            <p className="m-0">
+              Every meaningful pursuit begins as a Situation.
+            </p>
+            <p className="m-0">
+              A Situation is not just a problem to fix. It is layered with obstacles, opportunities, decisions, or ambition that deserves clarity.
+            </p>
+            <p className="m-0">
+              Even if what we&apos;re pursuing feels large—a long-term goal, a major want, or something transformational—the Compass recommends starting here.
+            </p>
+            <h3 className="text-white font-semibold mt-6 mb-2">Why start here?</h3>
+            <p className="m-0">
+              Because we often misread what we want.
+            </p>
+            <p className="m-0">
+              Before labeling something a meaningful want or transformation, the Compass guides you through Level 1 situationally:
+            </p>
+            <ul className="list-disc pl-5 space-y-1 my-3">
+              <li>What is the real opportunity or obstacle? What&apos;s the truth?</li>
+              <li>What mindset is shaping how you see it and would a different approach add more value?</li>
+              <li>What would an ideal outcome actually look like?</li>
+            </ul>
+            <p className="m-0">
+              Going through this process acts as a filter.
+            </p>
+            <h3 className="text-white font-semibold mt-6 mb-2">What happens next?</h3>
+            <p className="m-0">
+              Some Situations resolve quickly—perhaps through a single conversation or by working through higher principles in the pyramid.
+            </p>
+            <p className="m-0">
+              But other situations reveal a deeper direction we may want to build. In the Compass framework, these may be promoted to a Want, where multiple related Situations can be organized and pursued over time.
+            </p>
+            <p className="m-0">
+              Occasionally, a Situation uncovers something more structural—an identity-level shift that reshapes multiple areas of life. These may be promoted to a Transformation, where multiple Wants can live beneath a larger arc of what we&apos;re becoming.
+            </p>
+            <p className="m-0">
+              But every meaningful shift starts here.
+            </p>
+            <p className="m-0 font-medium text-white mt-4">
+              Clarity first. Structure second. Progress after that.
+            </p>
+          </div>
+        </Lightbox>
+      )}
+
+      {showWantsInfo && (
+        <Lightbox title="Wants" onClose={() => setShowWantsInfo(false)} maxWidth={720}>
+          <div className="space-y-5 text-[17px] text-white/90 leading-[1.6]">
+            <p className="m-0">
+              A Want is something you intend to pursue over time.
+            </p>
+            <p className="m-0">
+              While a Situation captures a specific moment, tension, or decision, a Want represents a broader direction you are choosing to build.
+            </p>
+            <p className="m-0">
+              Every entry begins as a Situation. After you&apos;ve worked through Level 1 of the Compass—clarifying the opportunity or obstacle, examining your mindset, and envisioning an ideal outcome—the system gives you the option to promote it.
+            </p>
+            <p className="m-0">
+              If what you&apos;ve uncovered requires sustained effort rather than a single move, it may belong here.
+            </p>
+            <p className="m-0">
+              A Want provides structure for ongoing progress. It allows you to organize multiple related Situations beneath a single pursuit, so your effort remains coordinated rather than scattered.
+            </p>
+            <p className="m-0">
+              If a Situation feels less like something to resolve and more like something to build, it is ready to become a Want.
+            </p>
+          </div>
+        </Lightbox>
+      )}
+
+      {showTransformationsInfo && (
+        <Lightbox title="Transformations" onClose={() => setShowTransformationsInfo(false)} maxWidth={720}>
+          <div className="space-y-5 text-[17px] text-white/90 leading-[1.6]">
+            <p className="m-0">
+              A Transformation represents a structural shift in who you are becoming.
+            </p>
+            <p className="m-0">
+              Unlike a Want—which organizes effort around a chosen direction—a Transformation reshapes multiple areas of your life. It reflects a deeper change in identity, posture, or long-term trajectory.
+            </p>
+            <p className="m-0">
+              Every entry begins as a Situation. After working through Level 1 of the Compass—clarifying the true opportunity or obstacle, examining mindset, and envisioning an ideal outcome—you may discover that what you&apos;re facing is not just something to build, but something that changes you.
+            </p>
+            <p className="m-0">
+              That is when promotion becomes available.
+            </p>
+            <p className="m-0">
+              A Transformation is appropriate when:
+            </p>
+            <ul className="list-disc pl-5 space-y-1 my-3">
+              <li>The change affects multiple life roles</li>
+              <li>It requires sustained effort across time</li>
+              <li>It reorganizes priorities, systems, or relationships</li>
+              <li>It reflects a meaningful shift in how you operate</li>
+            </ul>
+            <p className="m-0">
+              Structurally, a Transformation can contain multiple Wants. Each Want may contain multiple Situations. This allows complex, long-term change to be organized without losing clarity at the ground level.
+            </p>
+            <p className="m-0">
+              But even the most significant shifts begin as Situations.
+            </p>
+          </div>
+        </Lightbox>
+      )}
 
       {showMoveModal && rightPanel.type === "item-detail" && (() => {
         const currentItem = (moduleItems[rightPanel.moduleId] ?? []).find((i) => i.name === rightPanel.item);
