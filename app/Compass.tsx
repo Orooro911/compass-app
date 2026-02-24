@@ -459,8 +459,16 @@ function PrincipleLightboxWithTabs({
 
 type CompassProps = {
   compact?: boolean;
+  /** Active item (situation, want, or transformation) for principle content editing */
+  activePrincipleItem?: { moduleId: string; name: string } | null;
+  /** @deprecated Use activePrincipleItem with moduleId "situations" */
   activeSituation?: string | null;
+  /** Principle content keyed by "moduleId|name|principle" */
+  itemPrincipleContent?: Record<string, string>;
+  /** @deprecated Use itemPrincipleContent */
   situationPrincipleContent?: Record<string, string>;
+  onPrincipleContentChange?: (moduleId: string, name: string, principle: string, content: string) => void;
+  /** @deprecated Use onPrincipleContentChange */
   onSituationPrincipleContentChange?: (situation: string, principle: string, content: string) => void;
   openPrincipleId?: string | null;
   onPrincipleLightboxClose?: () => void;
@@ -468,12 +476,20 @@ type CompassProps = {
 
 export default function Compass({
   compact = false,
+  activePrincipleItem = null,
   activeSituation = null,
+  itemPrincipleContent = {},
   situationPrincipleContent = {},
+  onPrincipleContentChange,
   onSituationPrincipleContentChange,
   openPrincipleId = null,
   onPrincipleLightboxClose,
 }: CompassProps) {
+  const effectiveActive = activePrincipleItem ?? (activeSituation ? { moduleId: "situations" as const, name: activeSituation } : null);
+  const content = Object.keys(itemPrincipleContent).length > 0 ? itemPrincipleContent : situationPrincipleContent;
+  const lookupContent = (principle: string) =>
+    effectiveActive ? (content[`${effectiveActive.moduleId}|${effectiveActive.name}|${principle}`] ?? "") : "";
+  const handleContentChange = effectiveActive && (onPrincipleContentChange ?? ((_m: string, n: string, p: string, v: string) => onSituationPrincipleContentChange?.(n, p, v)));
   const [rotation, setRotation] = useState(0);
   const [lightboxCompassTitle, setLightboxCompassTitle] = useState(false);
   const [lightboxRole, setLightboxRole] = useState<Role | null>(null);
@@ -481,13 +497,13 @@ export default function Compass({
   const [lightboxLevel, setLightboxLevel] = useState<{ role: Role; levelIndex: number } | null>(null);
 
   useEffect(() => {
-    if (openPrincipleId && activeSituation) {
+    if (openPrincipleId && effectiveActive) {
       setLightboxCompassTitle(false);
       setLightboxRole(null);
       setLightboxLevel(null);
       setLightboxPrinciple({ role: "Achiever", principle: openPrincipleId });
     }
-  }, [openPrincipleId, activeSituation]);
+  }, [openPrincipleId, effectiveActive]);
 
   const openCompassTitleLightbox = () => {
     setLightboxRole(null);
@@ -964,9 +980,8 @@ export default function Compass({
 
     {lightboxPrinciple && (() => {
       const { title, body } = getPrincipleLightbox(lightboxPrinciple.role, lightboxPrinciple.principle);
-      const hasSituationTab = !!activeSituation && !!onSituationPrincipleContentChange;
-      const contentKey = activeSituation ? `${activeSituation}|${lightboxPrinciple.principle}` : "";
-      const userContent = (activeSituation && situationPrincipleContent?.[contentKey]) ?? "";
+      const hasSituationTab = !!effectiveActive && !!(onPrincipleContentChange ?? onSituationPrincipleContentChange);
+      const userContent = lookupContent(lightboxPrinciple.principle);
 
       const handleClose = () => {
         setLightboxPrinciple(null);
@@ -980,7 +995,7 @@ export default function Compass({
           body={body}
           hasSituationTab={hasSituationTab}
           userContent={userContent}
-          onUserContentChange={(v) => activeSituation && onSituationPrincipleContentChange?.(activeSituation, lightboxPrinciple.principle, v)}
+          onUserContentChange={(v) => effectiveActive && handleContentChange?.(effectiveActive.moduleId, effectiveActive.name, lightboxPrinciple.principle, v)}
         />
       );
     })()}

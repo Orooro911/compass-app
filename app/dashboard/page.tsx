@@ -8,6 +8,8 @@ const MODULES = [
   { id: "life-roles", title: "Life Roles", description: "Your fixed identities—job title, parent, friend, volunteer, business owner.", items: ["Parent", "Software Engineer", "Volunteer", "Friend", "Mentor"] },
   { id: "shared-growth", title: "Shared Growth", description: "The people you share your life with—partner, family, colleagues.", items: ["Partner", "Team", "Kids", "Manager", "Direct reports"] },
   { id: "situations", title: "Situations", description: "Meaningful situations to work through strategically with the Compass.", items: ["Career transition", "Difficult conversation", "New project", "Feedback session", "Conflict resolution", "Team restructure", "Salary negotiation", "Onboarding"] },
+  { id: "wants", title: "Wants", description: "What you want to pursue—each can nest situations underneath.", items: [] },
+  { id: "transformations", title: "Transformations", description: "Major shifts or builds—each can nest wants, which nest situations.", items: [] },
 ];
 
 const LIFE_ROLES_GROUPED: Record<string, string[]> = {
@@ -43,6 +45,9 @@ const LIFE_ROLES_GROUPED: Record<string, string[]> = {
 };
 
 const LIFE_ROLES_FLAT = Object.values(LIFE_ROLES_GROUPED).flat();
+
+/** Default life role always present at top of list; excluded from add/suggestions. */
+const DEFAULT_LIFE_ROLE_NAME = "Personal Growth";
 
 const SHARED_GROWTH_GROUPED: Record<string, string[]> = {
   "Core Relationships": [
@@ -92,17 +97,23 @@ const SITUATIONS_GROUPED: Record<string, string[]> = {
 const SITUATIONS_FLAT = Object.values(SITUATIONS_GROUPED).flat();
 
 const SUGGESTIONS: Record<string, string[]> = {
-  "life-roles": LIFE_ROLES_FLAT,
+  "life-roles": LIFE_ROLES_FLAT.filter((n) => n !== DEFAULT_LIFE_ROLE_NAME),
   "shared-growth": SHARED_GROWTH_FLAT,
   "situations": SITUATIONS_FLAT,
+  "wants": SITUATIONS_FLAT,
+  "transformations": SITUATIONS_FLAT,
 };
 
-const CONTENT_ONLY_MODULES = ["life-roles", "shared-growth", "situations"];
+const CONTENT_ONLY_MODULES = ["life-roles", "shared-growth", "situations", "wants", "transformations"];
+
+const PRINCIPLE_CONTENT_MODULES = ["situations", "wants", "transformations"];
 
 const LINK_TARGETS: Record<string, string[]> = {
-  "life-roles": ["shared-growth", "situations"],
-  "shared-growth": ["life-roles", "situations"],
-  "situations": ["life-roles", "shared-growth"],
+  "life-roles": ["shared-growth", "situations", "wants", "transformations"],
+  "shared-growth": ["life-roles", "situations", "wants", "transformations"],
+  "situations": ["life-roles", "shared-growth", "wants", "transformations"],
+  "wants": ["life-roles", "shared-growth", "situations", "transformations"],
+  "transformations": ["life-roles", "shared-growth", "situations", "wants"],
 };
 
 const PRINCIPLES_BY_LEVEL: { level: string; principles: { id: string; label: string }[] }[] = [
@@ -227,12 +238,14 @@ function LinkSection({
 }
 
 function PrinciplesByLevel({
-  situationName,
-  situationPrincipleContent,
+  moduleId,
+  itemName,
+  itemPrincipleContent,
   onEditPrinciple,
 }: {
-  situationName: string;
-  situationPrincipleContent: Record<string, string>;
+  moduleId: string;
+  itemName: string;
+  itemPrincipleContent: Record<string, string>;
   onEditPrinciple: (principleId: string) => void;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -254,8 +267,8 @@ function PrinciplesByLevel({
           <div className="mb-2 text-xs font-medium uppercase tracking-wider text-white/50">{level}</div>
           <div className="space-y-1">
             {principles.map(({ id, label }) => {
-              const contentKey = `${situationName}|${id}`;
-              const userContent = situationPrincipleContent[contentKey] ?? "";
+              const contentKey = `${moduleId}|${itemName}|${id}`;
+              const userContent = itemPrincipleContent[contentKey] ?? "";
               const isExpanded = expanded.has(id);
               return (
                 <div key={id} className="rounded-lg border border-white/10 overflow-hidden">
@@ -294,25 +307,27 @@ function PrinciplesByLevel({
 }
 
 function FullPlanSection({
-  situationName,
-  situationPrincipleContent,
+  itemName,
+  itemPrincipleContent,
+  moduleId,
   onEditPrinciple,
 }: {
-  situationName: string;
-  situationPrincipleContent: Record<string, string>;
+  itemName: string;
+  itemPrincipleContent: Record<string, string>;
+  moduleId: string;
   onEditPrinciple: (principleId: string) => void;
 }) {
   return (
     <div className="mt-12 w-full max-w-2xl mx-auto px-4 pb-12 print:mt-0" id="action-plan">
-      <h2 className="text-xl font-semibold text-white mb-6">{situationName} — Action Plan</h2>
+      <h2 className="text-xl font-semibold text-white mb-6">{itemName} — Action Plan</h2>
       <div className="space-y-6">
         {PRINCIPLES_BY_LEVEL.map(({ level, principles }) => (
           <div key={level}>
             <h3 className="text-sm font-medium text-white/80 mb-3">{level}</h3>
             <div className="space-y-4">
               {principles.map(({ id, label }) => {
-                const contentKey = `${situationName}|${id}`;
-                const userContent = situationPrincipleContent[contentKey] ?? "";
+                const contentKey = `${moduleId}|${itemName}|${id}`;
+                const userContent = itemPrincipleContent[contentKey] ?? "";
                 return (
                   <div key={id} className="rounded-lg border border-white/15 bg-white/5 p-4">
                     <div className="flex items-center justify-between mb-2">
@@ -343,19 +358,15 @@ function FullPlanSection({
 
 function LinkedSummary({
   activeItem,
-  links,
   moduleItems,
-  linkKey,
+  isLinked,
 }: {
   activeItem: { moduleId: string; item: string };
-  links: Set<string>;
   moduleItems: Record<string, ModuleItem[]>;
-  linkKey: (srcMod: string, srcItem: string, tgtMod: string, tgtItem: string) => string;
+  isLinked: (targetModuleId: string, targetItem: string) => boolean;
 }) {
   const getLinkedFor = (targetModuleId: string) =>
-    (moduleItems[targetModuleId] ?? []).filter((tgtItem) =>
-      links.has(linkKey(activeItem.moduleId, activeItem.item, targetModuleId, tgtItem.name))
-    );
+    (moduleItems[targetModuleId] ?? []).filter((tgtItem) => isLinked(targetModuleId, tgtItem.name));
 
   const sections = (LINK_TARGETS[activeItem.moduleId] ?? []).map((targetModuleId) => {
     const targetModule = MODULES.find((m) => m.id === targetModuleId);
@@ -615,12 +626,107 @@ function ModuleCard({
   );
 }
 
-type ModuleItem = { id: string; name: string };
+type ModuleItem = { id: string; name: string; parent_item_id?: string | null };
+
+function NestingModuleCard({
+  moduleId,
+  title,
+  description,
+  topLevelItems,
+  getChildren,
+  onItemClick,
+  onAdd,
+}: {
+  moduleId: "wants" | "transformations";
+  title: string;
+  description: string;
+  topLevelItems: ModuleItem[];
+  getChildren: (parentId: string, childModuleId: string) => ModuleItem[];
+  onItemClick: (item: string, moduleId: string) => void;
+  onAdd: () => void;
+}) {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const renderRow = (item: ModuleItem, itemModuleId: string, depth: number) => {
+    const childMod = CHILD_MODULE[itemModuleId];
+    const children = childMod ? getChildren(item.id, childMod) : [];
+    const hasChildren = children.length > 0;
+    const isExpanded = expandedIds.has(item.id);
+
+    return (
+      <div key={item.id} className={depth > 0 ? "pl-4" : ""}>
+        <div className="flex items-center gap-1.5 py-1">
+          {hasChildren ? (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); toggleExpanded(item.id); }}
+              className="shrink-0 text-white/60 hover:text-white p-0.5 leading-none"
+              aria-expanded={isExpanded}
+            >
+              {isExpanded ? "▼" : "▶"}
+            </button>
+          ) : (
+            <span className="w-4 shrink-0 inline-block" aria-hidden />
+          )}
+          <button
+            type="button"
+            onClick={() => onItemClick(item.name, itemModuleId)}
+            className="text-left text-sm text-white/90 hover:text-white flex-1 min-w-0 truncate"
+          >
+            {item.name}
+          </button>
+        </div>
+        {hasChildren && isExpanded && (
+          <div className="space-y-0">
+            {children.map((child) => renderRow(child, childMod, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="rounded-xl border border-white/20 bg-white/5 p-5 text-left transition-colors hover:bg-white/5 hover:border-white/30">
+      <h2 className="text-lg font-semibold text-white mb-2">{title}</h2>
+      <p className="text-sm text-white/80 leading-relaxed mb-3">{description}</p>
+      <button
+        type="button"
+        onClick={onAdd}
+        className="inline-block rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20 mb-4"
+      >
+        + Add
+      </button>
+      <div className="space-y-0">
+        {topLevelItems.length === 0 ? (
+          <p className="text-sm text-white/50">None yet. Add one above.</p>
+        ) : (
+          topLevelItems.map((item) => renderRow(item, moduleId, 0))
+        )}
+      </div>
+    </div>
+  );
+}
 
 const emptyModuleItems: Record<string, ModuleItem[]> = {
   "life-roles": [],
   "shared-growth": [],
   "situations": [],
+  "wants": [],
+  "transformations": [],
+};
+
+const CHILD_MODULE: Record<string, string> = {
+  wants: "situations",
+  transformations: "wants",
 };
 
 type RightPanelView =
@@ -633,10 +739,12 @@ export default function DashboardPage() {
   const [moduleItems, setModuleItems] = useState<Record<string, ModuleItem[]>>(emptyModuleItems);
   const [rightPanel, setRightPanel] = useState<RightPanelView>({ type: "dashboard" });
   const [addLightboxModuleId, setAddLightboxModuleId] = useState<string | null>(null);
+  const [addUnderParentId, setAddUnderParentId] = useState<string | null>(null);
+  const [showMoveModal, setShowMoveModal] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [links, setLinks] = useState<Set<string>>(new Set());
-  const [situationPrincipleContent, setSituationPrincipleContentState] = useState<Record<string, string>>({});
+  const [itemPrincipleContent, setItemPrincipleContentState] = useState<Record<string, string>>({});
   const [openPrincipleId, setOpenPrincipleId] = useState<string | null>(null);
 
   const getItemId = (moduleId: string, name: string) =>
@@ -660,7 +768,7 @@ export default function DashboardPage() {
       }
       const { data: itemsRows } = await supabase
         .from("module_items")
-        .select("id, module_id, name, sort_order")
+        .select("id, module_id, name, sort_order, parent_item_id")
         .eq("user_id", user.id)
         .order("sort_order");
       const { data: linksRows } = await supabase
@@ -668,50 +776,83 @@ export default function DashboardPage() {
         .select("from_item_id, to_item_id")
         .eq("user_id", user.id);
       const { data: spcRows } = await supabase
-        .from("situation_principle_content")
-        .select("situation_item_id, principle_id, content")
+        .from("item_principle_content")
+        .select("item_id, principle_id, content")
         .eq("user_id", user.id);
 
       const itemsByModule: Record<string, ModuleItem[]> = {
         "life-roles": [],
         "shared-growth": [],
         "situations": [],
+        "wants": [],
+        "transformations": [],
       };
-      const idToName: Record<string, string> = {};
+      const idToModuleAndName: Record<string, { moduleId: string; name: string }> = {};
       (itemsRows ?? []).forEach((r) => {
-        const arr = itemsByModule[r.module_id as string] ?? [];
-        arr.push({ id: r.id, name: r.name });
-        itemsByModule[r.module_id as string] = arr;
-        idToName[r.id] = r.name;
+        const moduleId = r.module_id as string;
+        const arr = itemsByModule[moduleId] ?? [];
+        arr.push({
+          id: r.id,
+          name: r.name,
+          parent_item_id: r.parent_item_id ?? undefined,
+        });
+        itemsByModule[moduleId] = arr;
+        idToModuleAndName[r.id] = { moduleId, name: r.name };
       });
+
+      // Ensure default life role "Personal Growth" exists and is first
+      const lifeRoles = itemsByModule["life-roles"] ?? [];
+      if (!lifeRoles.some((i) => i.name === DEFAULT_LIFE_ROLE_NAME)) {
+        const { data: inserted } = await supabase
+          .from("module_items")
+          .insert({
+            user_id: user.id,
+            module_id: "life-roles",
+            name: DEFAULT_LIFE_ROLE_NAME,
+            sort_order: -1,
+          })
+          .select("id, name, parent_item_id")
+          .single();
+        if (inserted) {
+          const defaultItem: ModuleItem = {
+            id: inserted.id,
+            name: inserted.name,
+            parent_item_id: inserted.parent_item_id ?? undefined,
+          };
+          itemsByModule["life-roles"] = [defaultItem, ...lifeRoles];
+          idToModuleAndName[inserted.id] = { moduleId: "life-roles", name: inserted.name };
+        }
+      }
+
       setModuleItems(itemsByModule);
 
       const linkSet = new Set<string>();
       (linksRows ?? []).forEach((r) => linkSet.add(`${r.from_item_id}|${r.to_item_id}`));
       setLinks(linkSet);
 
-      const spc: Record<string, string> = {};
+      const itemContent: Record<string, string> = {};
       (spcRows ?? []).forEach((r) => {
-        const situationName = idToName[r.situation_item_id];
-        if (situationName) spc[`${situationName}|${r.principle_id}`] = r.content ?? "";
+        const meta = idToModuleAndName[r.item_id];
+        if (meta) itemContent[`${meta.moduleId}|${meta.name}|${r.principle_id}`] = r.content ?? "";
       });
-      setSituationPrincipleContentState(spc);
+      setItemPrincipleContentState(itemContent);
       setLoading(false);
     })();
   }, [router]);
 
-  const setSituationPrincipleContent = async (situation: string, principle: string, content: string) => {
-    setSituationPrincipleContentState((prev) => ({ ...prev, [`${situation}|${principle}`]: content }));
-    const situationItemId = getItemId("situations", situation);
-    if (!situationItemId) return;
+  const setItemPrincipleContent = async (moduleId: string, itemName: string, principle: string, content: string) => {
+    const key = `${moduleId}|${itemName}|${principle}`;
+    setItemPrincipleContentState((prev) => ({ ...prev, [key]: content }));
+    const itemId = getItemId(moduleId, itemName);
+    if (!itemId) return;
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     await supabase
-      .from("situation_principle_content")
+      .from("item_principle_content")
       .upsert(
-        { user_id: user.id, situation_item_id: situationItemId, principle_id: principle, content },
-        { onConflict: "user_id,situation_item_id,principle_id" }
+        { user_id: user.id, item_id: itemId, principle_id: principle, content },
+        { onConflict: "user_id,item_id,principle_id" }
       );
   };
 
@@ -724,21 +865,31 @@ export default function DashboardPage() {
 
   const activeItem = rightPanel.type === "item-detail" ? rightPanel : null;
 
-  const addItem = async (moduleId: string, item: string) => {
+  const addItem = async (moduleId: string, item: string, parentItemId?: string | null) => {
     const list = moduleItems[moduleId] ?? [];
     if (list.some((i) => i.name === item)) return;
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    const payload: Record<string, unknown> = {
+      user_id: user.id,
+      module_id: moduleId,
+      name: item,
+      sort_order: list.length,
+    };
+    if (parentItemId) payload.parent_item_id = parentItemId;
     const { data: inserted, error } = await supabase
       .from("module_items")
-      .insert({ user_id: user.id, module_id: moduleId, name: item, sort_order: list.length })
-      .select("id, name")
+      .insert(payload)
+      .select("id, name, parent_item_id")
       .single();
     if (error) return;
     setModuleItems((prev) => ({
       ...prev,
-      [moduleId]: [...(prev[moduleId] ?? []), { id: inserted.id, name: inserted.name }],
+      [moduleId]: [
+        ...(prev[moduleId] ?? []),
+        { id: inserted.id, name: inserted.name, parent_item_id: inserted.parent_item_id ?? undefined },
+      ],
     }));
   };
 
@@ -755,26 +906,39 @@ export default function DashboardPage() {
     );
   };
 
-  const isLinked = (targetModuleId: string, targetItem: string) =>
-    !!activeItem && links.has(linkKey(activeItem.moduleId, activeItem.item, targetModuleId, targetItem));
+  const hasLinkBetween = (id1: string, id2: string) =>
+    links.has(`${id1}|${id2}`) || links.has(`${id2}|${id1}`);
+
+  const getAllItemIds = () => {
+    const ids: string[] = [];
+    Object.values(moduleItems).forEach((arr) => arr.forEach((i) => ids.push(i.id)));
+    return ids;
+  };
+
+  const isLinked = (targetModuleId: string, targetItem: string) => {
+    if (!activeItem) return false;
+    const activeId = getItemId(activeItem.moduleId, activeItem.item);
+    const targetId = getItemId(targetModuleId, targetItem);
+    if (!activeId || !targetId) return false;
+    if (hasLinkBetween(activeId, targetId)) return true;
+    const directlyLinkedIds = getAllItemIds().filter((id) => hasLinkBetween(activeId, id));
+    return directlyLinkedIds.some((midId) => hasLinkBetween(midId, targetId));
+  };
 
   const toggleLink = async (targetModuleId: string, targetItem: string) => {
     if (!activeItem) return;
     const fromId = getItemId(activeItem.moduleId, activeItem.item);
     const toId = getItemId(targetModuleId, targetItem);
     if (!fromId || !toId) return;
-    const key = `${fromId}|${toId}`;
+    const key1 = `${fromId}|${toId}`;
+    const key2 = `${toId}|${fromId}`;
+    const linked = hasLinkBetween(fromId, toId);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const linked = links.has(key);
     if (linked) {
-      await supabase
-        .from("links")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("from_item_id", fromId)
-        .eq("to_item_id", toId);
+      await supabase.from("links").delete().eq("user_id", user.id).eq("from_item_id", fromId).eq("to_item_id", toId);
+      await supabase.from("links").delete().eq("user_id", user.id).eq("from_item_id", toId).eq("to_item_id", fromId);
     } else {
       await supabase.from("links").insert({
         user_id: user.id,
@@ -784,13 +948,15 @@ export default function DashboardPage() {
     }
     setLinks((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      next.delete(key1);
+      next.delete(key2);
+      if (!linked) next.add(key1);
       return next;
     });
   };
 
   const updateItemName = async (moduleId: string, currentName: string, newName: string) => {
+    if (moduleId === "life-roles" && currentName === DEFAULT_LIFE_ROLE_NAME) return;
     const trimmed = newName.trim();
     if (!trimmed || trimmed === currentName) return;
     const itemObj = (moduleItems[moduleId] ?? []).find((i) => i.name === currentName);
@@ -806,10 +972,107 @@ export default function DashboardPage() {
     setRightPanel((prev) =>
       prev.type === "item-detail" && prev.item === currentName ? { ...prev, item: trimmed } : prev
     );
+    if (PRINCIPLE_CONTENT_MODULES.includes(moduleId)) {
+      setItemPrincipleContentState((prev) => {
+        const prefix = `${moduleId}|${currentName}|`;
+        const newPrefix = `${moduleId}|${trimmed}|`;
+        const next = { ...prev };
+        Object.keys(prev).forEach((k) => {
+          if (k.startsWith(prefix)) {
+            const principle = k.slice(prefix.length);
+            next[newPrefix + principle] = prev[k];
+            delete next[k];
+          }
+        });
+        return next;
+      });
+    }
+  };
+
+  const getChildren = (parentId: string, childModuleId: string) =>
+    (moduleItems[childModuleId] ?? []).filter((i) => i.parent_item_id === parentId);
+
+  const promoteItem = async (moduleId: string, itemName: string) => {
+    const itemObj = (moduleItems[moduleId] ?? []).find((i) => i.name === itemName);
+    if (!itemObj) return;
+    const supabase = createClient();
+    let newModuleId: string;
+    let newParentId: string | null = null;
+    if (moduleId === "situations") newModuleId = "wants";
+    else if (moduleId === "wants") newModuleId = "transformations";
+    else return;
+    if (moduleId === "situations" && itemObj.parent_item_id) {
+      const parentWant = (moduleItems["wants"] ?? []).find((i) => i.id === itemObj.parent_item_id);
+      newParentId = parentWant?.parent_item_id ?? null;
+    }
+    if (moduleId === "wants") {
+      const children = getChildren(itemObj.id, "situations");
+      for (const c of children) {
+        await supabase.from("module_items").update({ parent_item_id: null }).eq("id", c.id);
+      }
+      setModuleItems((prev) => ({
+        ...prev,
+        situations: (prev.situations ?? []).map((i) =>
+          i.parent_item_id === itemObj.id ? { ...i, parent_item_id: undefined } : i
+        ),
+      }));
+    }
+    await supabase.from("module_items").update({ module_id: newModuleId, parent_item_id: newParentId }).eq("id", itemObj.id);
+    setModuleItems((prev) => ({
+      ...prev,
+      [moduleId]: (prev[moduleId] ?? []).filter((i) => i.id !== itemObj.id),
+      [newModuleId]: [
+        ...(prev[newModuleId] ?? []).filter((i) => i.id !== itemObj.id),
+        { ...itemObj, name: itemObj.name, parent_item_id: newParentId ?? undefined },
+      ],
+    }));
+    setRightPanel((prev) => (prev.type === "item-detail" && prev.item === itemName ? { ...prev, moduleId: newModuleId } : prev));
+  };
+
+  const demoteItem = async (moduleId: string, itemName: string) => {
+    const itemObj = (moduleItems[moduleId] ?? []).find((i) => i.name === itemName);
+    if (!itemObj) return;
+    const supabase = createClient();
+    let newModuleId: string;
+    if (moduleId === "transformations") newModuleId = "wants";
+    else if (moduleId === "wants") newModuleId = "situations";
+    else return;
+    const childModuleId = CHILD_MODULE[moduleId];
+    const children = getChildren(itemObj.id, childModuleId);
+    for (const c of children) {
+      await supabase.from("module_items").update({ parent_item_id: null }).eq("id", c.id);
+    }
+    setModuleItems((prev) => ({
+      ...prev,
+      [childModuleId]: (prev[childModuleId] ?? []).map((i) =>
+        i.parent_item_id === itemObj.id ? { ...i, parent_item_id: undefined } : i
+      ),
+    }));
+    await supabase.from("module_items").update({ module_id: newModuleId, parent_item_id: null }).eq("id", itemObj.id);
+    setModuleItems((prev) => ({
+      ...prev,
+      [moduleId]: (prev[moduleId] ?? []).filter((i) => i.id !== itemObj.id),
+      [newModuleId]: [...(prev[newModuleId] ?? []).filter((i) => i.id !== itemObj.id), { ...itemObj, parent_item_id: undefined }],
+    }));
+    setRightPanel((prev) => (prev.type === "item-detail" && prev.item === itemName ? { ...prev, moduleId: newModuleId } : prev));
+  };
+
+  const moveItem = async (moduleId: string, itemName: string, newParentId: string | null) => {
+    const itemObj = (moduleItems[moduleId] ?? []).find((i) => i.name === itemName);
+    if (!itemObj) return;
+    const supabase = createClient();
+    await supabase.from("module_items").update({ parent_item_id: newParentId }).eq("id", itemObj.id);
+    setModuleItems((prev) => ({
+      ...prev,
+      [moduleId]: (prev[moduleId] ?? []).map((i) =>
+        i.id === itemObj.id ? { ...i, parent_item_id: newParentId ?? undefined } : i
+      ),
+    }));
   };
 
   const handleRemoveConfirm = () => {
     if (rightPanel.type === "item-detail") {
+      if (rightPanel.moduleId === "life-roles" && rightPanel.item === DEFAULT_LIFE_ROLE_NAME) return;
       removeItem(rightPanel.moduleId, rightPanel.item);
       setShowRemoveConfirm(false);
     }
@@ -833,11 +1096,11 @@ export default function DashboardPage() {
       });
       return next;
     });
-    if (moduleId === "situations") {
-      setSituationPrincipleContentState((prev) => {
+    if (PRINCIPLE_CONTENT_MODULES.includes(moduleId)) {
+      setItemPrincipleContentState((prev) => {
         const next = { ...prev };
         Object.keys(next).forEach((k) => {
-          if (k.startsWith(`${item}|`)) delete next[k];
+          if (k.startsWith(`${moduleId}|${item}|`)) delete next[k];
         });
         return next;
       });
@@ -845,7 +1108,7 @@ export default function DashboardPage() {
     backToDashboard();
   };
 
-  const showFullPlan = rightPanel.type === "item-detail" && rightPanel.moduleId === "situations";
+  const showFullPlan = rightPanel.type === "item-detail" && PRINCIPLE_CONTENT_MODULES.includes(rightPanel.moduleId);
 
   if (loading) {
     return (
@@ -858,7 +1121,7 @@ export default function DashboardPage() {
   return (
     <main className="relative min-h-screen bg-[#0b0b0c] text-white flex flex-col">
       <div
-        className="flex flex-1 flex-col lg:flex-row lg:justify-center lg:items-center"
+        className="flex flex-1 flex-col lg:flex-row lg:justify-center lg:items-start"
         style={{ padding: "min(2vh, 24px)", paddingTop: "min(6vh, 56px)" }}
       >
       <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-4">
@@ -875,9 +1138,9 @@ export default function DashboardPage() {
       <div className="flex-none flex items-center justify-center lg:min-w-0">
         <div className="w-full max-w-full flex justify-center">
           <Compass
-            activeSituation={rightPanel.type === "item-detail" && rightPanel.moduleId === "situations" ? rightPanel.item : null}
-            situationPrincipleContent={situationPrincipleContent}
-            onSituationPrincipleContentChange={setSituationPrincipleContent}
+            activePrincipleItem={rightPanel.type === "item-detail" && PRINCIPLE_CONTENT_MODULES.includes(rightPanel.moduleId) ? { moduleId: rightPanel.moduleId, name: rightPanel.item } : null}
+            itemPrincipleContent={itemPrincipleContent}
+            onPrincipleContentChange={setItemPrincipleContent}
             openPrincipleId={openPrincipleId}
             onPrincipleLightboxClose={() => setOpenPrincipleId(null)}
           />
@@ -887,21 +1150,42 @@ export default function DashboardPage() {
       {/* Spacer — desktop only */}
       <div className="hidden lg:block flex-none w-[200px] shrink-0" />
 
-      {/* Right: Module cards or detail/add panel */}
-      <div className="flex-none flex flex-col justify-center pt-6 lg:pt-0 lg:max-w-md">
+      {/* Right: Module cards or detail/add panel — top-aligned with compass */}
+      <div className="flex-none flex flex-col justify-start pt-6 lg:pt-0 lg:max-w-md">
         {rightPanel.type === "dashboard" && (
           <div className="flex flex-col gap-4">
-            {MODULES.map((m) => (
-              <ModuleCard
-                key={m.id}
-                moduleId={m.id}
-                title={m.title}
-                description={m.description}
-                items={(moduleItems[m.id] ?? []).map((i) => i.name)}
-                onItemClick={CONTENT_ONLY_MODULES.includes(m.id) ? (item) => handleItemClick(item, m.id) : undefined}
-                onAdd={() => setAddLightboxModuleId(m.id)}
-              />
-            ))}
+            {MODULES.map((m) =>
+              m.id === "wants" || m.id === "transformations" ? (
+                <NestingModuleCard
+                  key={m.id}
+                  moduleId={m.id}
+                  title={m.title}
+                  description={m.description}
+                  topLevelItems={(moduleItems[m.id] ?? []).filter((i) => !i.parent_item_id)}
+                  getChildren={getChildren}
+                  onItemClick={handleItemClick}
+                  onAdd={() => setAddLightboxModuleId(m.id)}
+                />
+              ) : (
+                <ModuleCard
+                  key={m.id}
+                  moduleId={m.id}
+                  title={m.title}
+                  description={m.description}
+                  items={(moduleItems[m.id] ?? [])
+                    .filter((i) => !i.parent_item_id)
+                    .sort((a, b) => {
+                      if (m.id !== "life-roles") return 0;
+                      if (a.name === DEFAULT_LIFE_ROLE_NAME) return -1;
+                      if (b.name === DEFAULT_LIFE_ROLE_NAME) return 1;
+                      return 0;
+                    })
+                    .map((i) => i.name)}
+                  onItemClick={CONTENT_ONLY_MODULES.includes(m.id) ? (item) => handleItemClick(item, m.id) : undefined}
+                  onAdd={() => setAddLightboxModuleId(m.id)}
+                />
+              )
+            )}
           </div>
         )}
 
@@ -916,21 +1200,89 @@ export default function DashboardPage() {
                     value={editedName}
                     onChange={(e) => setEditedName(e.target.value)}
                     onBlur={() => updateItemName(rightPanel.moduleId, rightPanel.item, editedName)}
-                    className="mt-1 block w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 pr-8 text-white"
+                    readOnly={rightPanel.moduleId === "life-roles" && rightPanel.item === DEFAULT_LIFE_ROLE_NAME}
+                    className="mt-1 block w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 pr-8 text-white disabled:opacity-80 disabled:cursor-default"
                   />
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setShowRemoveConfirm(true)}
-                  className="absolute bottom-2 right-2 text-red-400 hover:text-red-300 text-lg leading-none"
-                  aria-label="Remove"
-                >
-                  ×
-                </button>
+                {rightPanel.moduleId === "life-roles" && rightPanel.item === DEFAULT_LIFE_ROLE_NAME && (
+                  <p className="mt-1 text-xs text-white/50">This default role stays as &quot;Personal Growth&quot; as a reminder to keep something in this area.</p>
+                )}
+                {!(rightPanel.moduleId === "life-roles" && rightPanel.item === DEFAULT_LIFE_ROLE_NAME) && (
+                  <button
+                    type="button"
+                    onClick={() => setShowRemoveConfirm(true)}
+                    className="absolute bottom-2 right-2 text-red-400 hover:text-red-300 text-lg leading-none"
+                    aria-label="Remove"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
 
               {rightPanel.mode === "editing" ? (
                 <>
+                  {(rightPanel.moduleId === "wants" || rightPanel.moduleId === "transformations") && (() => {
+                    const childModuleId = CHILD_MODULE[rightPanel.moduleId];
+                    const childModule = MODULES.find((m) => m.id === childModuleId);
+                    const currentItem = (moduleItems[rightPanel.moduleId] ?? []).find((i) => i.name === rightPanel.item);
+                    const children = currentItem ? getChildren(currentItem.id, childModuleId) : [];
+                    return (
+                      <div className="rounded-lg border border-white/10 p-4">
+                        <div className="mb-3 flex items-center justify-between">
+                          <h3 className="text-sm font-medium text-white/90">Nested {childModule?.title ?? ""}</h3>
+                          <button
+                            type="button"
+                            onClick={() => { setAddUnderParentId(currentItem!.id); setAddLightboxModuleId(childModuleId); }}
+                            className="text-xs text-white/60 hover:text-white"
+                          >
+                            + Add {childModuleId === "situations" ? "situation" : "want"} under this
+                          </button>
+                        </div>
+                        {children.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {children.map((c) => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => handleItemClick(c.name, childModuleId)}
+                                className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm text-white/90 hover:bg-white/10"
+                              >
+                                {c.name}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-white/50">None yet. Add {childModuleId === "situations" ? "situations" : "wants"} to nest under this.</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  {(["situations", "wants"].includes(rightPanel.moduleId)) && (
+                    <div className="flex flex-wrap gap-2">
+                      {rightPanel.moduleId === "situations" && (
+                        <button
+                          type="button"
+                          onClick={() => promoteItem(rightPanel.moduleId, rightPanel.item)}
+                          className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10"
+                        >
+                          Promote to Want
+                        </button>
+                      )}
+                      {rightPanel.moduleId === "wants" && (
+                        <>
+                          <button type="button" onClick={() => promoteItem(rightPanel.moduleId, rightPanel.item)} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10">Promote to Transformation</button>
+                          <button type="button" onClick={() => demoteItem(rightPanel.moduleId, rightPanel.item)} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10">Demote to Situation</button>
+                          <button type="button" onClick={() => setShowMoveModal(true)} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10">Move to…</button>
+                        </>
+                      )}
+                      {rightPanel.moduleId === "transformations" && (
+                        <button type="button" onClick={() => demoteItem(rightPanel.moduleId, rightPanel.item)} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10">Demote to Want</button>
+                      )}
+                      {rightPanel.moduleId === "situations" && (
+                        <button type="button" onClick={() => setShowMoveModal(true)} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10">Move to…</button>
+                      )}
+                    </div>
+                  )}
                   {(LINK_TARGETS[rightPanel.moduleId] ?? []).map((targetModuleId) => {
                     const targetModule = MODULES.find((m) => m.id === targetModuleId);
                     const items = (moduleItems[targetModuleId] ?? []).map((i) => i.name);
@@ -962,9 +1314,8 @@ export default function DashboardPage() {
                 <>
                   <LinkedSummary
                     activeItem={rightPanel}
-                    links={links}
                     moduleItems={moduleItems}
-                    linkKey={linkKey}
+                    isLinked={isLinked}
                   />
                   <div className="flex justify-end gap-2 pt-2">
                     <button
@@ -978,10 +1329,11 @@ export default function DashboardPage() {
                 </>
               )}
 
-              {rightPanel.moduleId === "situations" && (
+              {PRINCIPLE_CONTENT_MODULES.includes(rightPanel.moduleId) && (
                 <PrinciplesByLevel
-                  situationName={rightPanel.item}
-                  situationPrincipleContent={situationPrincipleContent}
+                  moduleId={rightPanel.moduleId}
+                  itemName={rightPanel.item}
+                  itemPrincipleContent={itemPrincipleContent}
                   onEditPrinciple={setOpenPrincipleId}
                 />
               )}
@@ -998,13 +1350,42 @@ export default function DashboardPage() {
           groupedSuggestions={
             addLightboxModuleId === "life-roles" ? LIFE_ROLES_GROUPED :
             addLightboxModuleId === "shared-growth" ? SHARED_GROWTH_GROUPED :
-            addLightboxModuleId === "situations" ? SITUATIONS_GROUPED :
+            (addLightboxModuleId === "situations" || addLightboxModuleId === "wants" || addLightboxModuleId === "transformations") ? SITUATIONS_GROUPED :
             undefined
           }
-          onAdd={(item) => addItem(addLightboxModuleId, item)}
-          onClose={() => setAddLightboxModuleId(null)}
+          onAdd={(item) => { addItem(addLightboxModuleId, item, addUnderParentId); setAddUnderParentId(null); }}
+          onClose={() => { setAddLightboxModuleId(null); setAddUnderParentId(null); }}
         />
       )}
+
+      {showMoveModal && rightPanel.type === "item-detail" && (() => {
+        const currentItem = (moduleItems[rightPanel.moduleId] ?? []).find((i) => i.name === rightPanel.item);
+        const validParents: { id: string | null; label: string }[] = [{ id: null, label: "Top level" }];
+        if (rightPanel.moduleId === "situations") {
+          (moduleItems["wants"] ?? []).filter((i) => !i.parent_item_id).forEach((w) => validParents.push({ id: w.id, label: w.name }));
+        } else if (rightPanel.moduleId === "wants") {
+          (moduleItems["transformations"] ?? []).forEach((t) => validParents.push({ id: t.id, label: t.name }));
+        }
+        return (
+          <Lightbox title="Move to" onClose={() => setShowMoveModal(false)} maxWidth={360}>
+            <div className="space-y-2">
+              {validParents.map(({ id, label }) => (
+                <button
+                  key={id ?? "top"}
+                  type="button"
+                  onClick={() => {
+                    if (currentItem) moveItem(rightPanel.moduleId, rightPanel.item, id);
+                    setShowMoveModal(false);
+                  }}
+                  className="block w-full rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-left text-sm text-white hover:bg-white/10"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </Lightbox>
+        );
+      })()}
 
       {showRemoveConfirm && rightPanel.type === "item-detail" && (
         <Lightbox
@@ -1014,8 +1395,8 @@ export default function DashboardPage() {
         >
           <div className="flex flex-col gap-4">
             <p className="text-sm text-white/90 leading-relaxed">
-              {rightPanel.moduleId === "situations"
-                ? "Removing this situation will remove any links to Life Roles and Shared Growth, and will permanently delete all notes and content you've added for this situation."
+              {PRINCIPLE_CONTENT_MODULES.includes(rightPanel.moduleId)
+                ? "Removing this will remove any links, nested items, and permanently delete all notes and content you've added."
                 : "Removing this will remove any linked items."}
             </p>
             <div className="flex justify-end gap-2">
@@ -1041,8 +1422,9 @@ export default function DashboardPage() {
 
       {showFullPlan && (
         <FullPlanSection
-          situationName={rightPanel.item}
-          situationPrincipleContent={situationPrincipleContent}
+          itemName={rightPanel.item}
+          itemPrincipleContent={itemPrincipleContent}
+          moduleId={rightPanel.moduleId}
           onEditPrinciple={setOpenPrincipleId}
         />
       )}
