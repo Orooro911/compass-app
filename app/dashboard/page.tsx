@@ -1,7 +1,7 @@
 "use client";
 
 import Compass from "../Compass";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 const MODULES = [
@@ -779,6 +779,8 @@ type RightPanelView =
 export default function DashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadKey, setLoadKey] = useState(0);
   const [moduleItems, setModuleItems] = useState<Record<string, ModuleItem[]>>(emptyModuleItems);
   const [rightPanel, setRightPanel] = useState<RightPanelView>({ type: "dashboard" });
   const [addUnderParentId, setAddUnderParentId] = useState<string | null>(null);
@@ -797,6 +799,9 @@ export default function DashboardPage() {
   const [showLifeRolesInfo, setShowLifeRolesInfo] = useState(false);
   const [showSharedGrowthInfo, setShowSharedGrowthInfo] = useState(false);
 
+  /** Debounce timeouts for principle content: only persist after user stops typing so out-of-order upserts don't truncate content. */
+  const principleContentSaveTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
   const getItemId = (moduleId: string, name: string) =>
     (moduleItems[moduleId] ?? []).find((i) => i.name === name)?.id;
 
@@ -808,102 +813,120 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    setLoadError(null);
     const supabase = createClient();
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.replace("/auth/login?next=/dashboard");
-        setLoading(false);
-        return;
-      }
-      const { data: itemsRows } = await supabase
-        .from("module_items")
-        .select("id, module_id, name, sort_order, parent_item_id")
-        .eq("user_id", user.id)
-        .order("sort_order");
-      const { data: linksRows } = await supabase
-        .from("links")
-        .select("from_item_id, to_item_id")
-        .eq("user_id", user.id);
-      const { data: spcRows } = await supabase
-        .from("item_principle_content")
-        .select("item_id, principle_id, content")
-        .eq("user_id", user.id);
-
-      const itemsByModule: Record<string, ModuleItem[]> = {
-        "life-roles": [],
-        "shared-growth": [],
-        "situations": [],
-        "wants": [],
-        "transformations": [],
-      };
-      const idToModuleAndName: Record<string, { moduleId: string; name: string }> = {};
-      (itemsRows ?? []).forEach((r) => {
-        const moduleId = r.module_id as string;
-        const arr = itemsByModule[moduleId] ?? [];
-        arr.push({
-          id: r.id,
-          name: r.name,
-          parent_item_id: r.parent_item_id ?? undefined,
-        });
-        itemsByModule[moduleId] = arr;
-        idToModuleAndName[r.id] = { moduleId, name: r.name };
-      });
-
-      // Ensure default life role "Personal Growth" exists and is first
-      const lifeRoles = itemsByModule["life-roles"] ?? [];
-      if (!lifeRoles.some((i) => i.name === DEFAULT_LIFE_ROLE_NAME)) {
-        const { data: inserted } = await supabase
-          .from("module_items")
-          .insert({
-            user_id: user.id,
-            module_id: "life-roles",
-            name: DEFAULT_LIFE_ROLE_NAME,
-            sort_order: -1,
-          })
-          .select("id, name, parent_item_id")
-          .single();
-        if (inserted) {
-          const defaultItem: ModuleItem = {
-            id: inserted.id,
-            name: inserted.name,
-            parent_item_id: inserted.parent_item_id ?? undefined,
-          };
-          itemsByModule["life-roles"] = [defaultItem, ...lifeRoles];
-          idToModuleAndName[inserted.id] = { moduleId: "life-roles", name: inserted.name };
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.replace("/auth/login?next=/dashboard");
+          setLoading(false);
+          return;
         }
+        const { data: itemsRows } = await supabase
+          .from("module_items")
+          .select("id, module_id, name, sort_order, parent_item_id")
+          .eq("user_id", user.id)
+          .order("sort_order");
+        const { data: linksRows } = await supabase
+          .from("links")
+          .select("from_item_id, to_item_id")
+          .eq("user_id", user.id);
+        const { data: spcRows } = await supabase
+          .from("item_principle_content")
+          .select("item_id, principle_id, content")
+          .eq("user_id", user.id);
+
+        const itemsByModule: Record<string, ModuleItem[]> = {
+          "life-roles": [],
+          "shared-growth": [],
+          "situations": [],
+          "wants": [],
+          "transformations": [],
+        };
+        const idToModuleAndName: Record<string, { moduleId: string; name: string }> = {};
+        (itemsRows ?? []).forEach((r) => {
+          const moduleId = r.module_id as string;
+          const arr = itemsByModule[moduleId] ?? [];
+          arr.push({
+            id: r.id,
+            name: r.name,
+            parent_item_id: r.parent_item_id ?? undefined,
+          });
+          itemsByModule[moduleId] = arr;
+          idToModuleAndName[r.id] = { moduleId, name: r.name };
+        });
+
+        // Ensure default life role "Personal Growth" exists and is first
+        const lifeRoles = itemsByModule["life-roles"] ?? [];
+        if (!lifeRoles.some((i) => i.name === DEFAULT_LIFE_ROLE_NAME)) {
+          const { data: inserted } = await supabase
+            .from("module_items")
+            .insert({
+              user_id: user.id,
+              module_id: "life-roles",
+              name: DEFAULT_LIFE_ROLE_NAME,
+              sort_order: -1,
+            })
+            .select("id, name, parent_item_id")
+            .single();
+          if (inserted) {
+            const defaultItem: ModuleItem = {
+              id: inserted.id,
+              name: inserted.name,
+              parent_item_id: inserted.parent_item_id ?? undefined,
+            };
+            itemsByModule["life-roles"] = [defaultItem, ...lifeRoles];
+            idToModuleAndName[inserted.id] = { moduleId: "life-roles", name: inserted.name };
+          }
+        }
+
+        setModuleItems(itemsByModule);
+
+        const linkSet = new Set<string>();
+        (linksRows ?? []).forEach((r) => linkSet.add(`${r.from_item_id}|${r.to_item_id}`));
+        setLinks(linkSet);
+
+        const itemContent: Record<string, string> = {};
+        (spcRows ?? []).forEach((r) => {
+          const meta = idToModuleAndName[r.item_id];
+          if (meta) itemContent[`${meta.moduleId}|${meta.name}|${r.principle_id}`] = r.content ?? "";
+        });
+        setItemPrincipleContentState(itemContent);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        setLoadError(message);
+        console.error("Dashboard load error:", e);
+      } finally {
+        setLoading(false);
       }
-
-      setModuleItems(itemsByModule);
-
-      const linkSet = new Set<string>();
-      (linksRows ?? []).forEach((r) => linkSet.add(`${r.from_item_id}|${r.to_item_id}`));
-      setLinks(linkSet);
-
-      const itemContent: Record<string, string> = {};
-      (spcRows ?? []).forEach((r) => {
-        const meta = idToModuleAndName[r.item_id];
-        if (meta) itemContent[`${meta.moduleId}|${meta.name}|${r.principle_id}`] = r.content ?? "";
-      });
-      setItemPrincipleContentState(itemContent);
-      setLoading(false);
     })();
-  }, [router]);
+  }, [router, loadKey]);
 
-  const setItemPrincipleContent = async (moduleId: string, itemName: string, principle: string, content: string) => {
+  const setItemPrincipleContent = (moduleId: string, itemName: string, principle: string, content: string) => {
     const key = `${moduleId}|${itemName}|${principle}`;
     setItemPrincipleContentState((prev) => ({ ...prev, [key]: content }));
-    const itemId = getItemId(moduleId, itemName);
-    if (!itemId) return;
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase
-      .from("item_principle_content")
-      .upsert(
-        { user_id: user.id, item_id: itemId, principle_id: principle, content },
-        { onConflict: "user_id,item_id,principle_id" }
-      );
+
+    const doPersist = async () => {
+      const itemId = getItemId(moduleId, itemName);
+      if (!itemId) return;
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase
+        .from("item_principle_content")
+        .upsert(
+          { user_id: user.id, item_id: itemId, principle_id: principle, content },
+          { onConflict: "user_id,item_id,principle_id" }
+        );
+    };
+
+    const t = principleContentSaveTimeouts.current[key];
+    if (t) clearTimeout(t);
+    principleContentSaveTimeouts.current[key] = setTimeout(() => {
+      delete principleContentSaveTimeouts.current[key];
+      doPersist();
+    }, 500);
   };
 
   const handleSignOut = async () => {
@@ -1211,6 +1234,33 @@ export default function DashboardPage() {
     return (
       <main className="min-h-screen bg-[#0b0b0c] flex items-center justify-center">
         <p className="text-white/70">Loading…</p>
+      </main>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <main className="min-h-screen bg-[#0b0b0c] flex flex-col items-center justify-center gap-4 p-6">
+        <p className="text-white/90 text-center max-w-md">
+          Couldn&apos;t load your dashboard. This often happens when Supabase is still restoring or the connection fails.
+        </p>
+        <p className="text-white/50 text-sm text-center max-w-md font-mono">{loadError}</p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => { setLoadError(null); setLoading(true); setLoadKey((k) => k + 1); }}
+            className="rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20"
+          >
+            Retry
+          </button>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20"
+          >
+            Sign out
+          </button>
+        </div>
       </main>
     );
   }

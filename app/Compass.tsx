@@ -359,24 +359,197 @@ function getLevelLightbox(role: Role, levelIndex: number) {
   return LEVEL_LIGHTBOX[key] ?? { title: `${role} Level ${levelIndex + 1}`, body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for {role} Level {levelIndex + 1} here.</p> };
 }
 
-const COMPASS_TITLE_LIGHTBOX = {
-  title: "The Compass",
-  body: (
+const COMPASS_TITLE_OVERVIEW = (
     <>
-      <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>The Compass is a structured framework for navigating life&apos;s most meaningful situations with clarity and agency.</p>
-      <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>It rests on two foundational ideas.</p>
-      <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>First, it reduces the complexity of our many life roles into four universal postures of responsibility and contribution: Achiever, Leader, Partner, and Follower. These are not titles or fixed identities. They are functional lenses for understanding how we are showing up in a given moment and what that moment requires.</p>
-      <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Second, it provides a sequential architecture for strengthening those roles through nine principles arranged as a pyramid, with each level building on the one beneath it.</p>
-      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>The lower levels establish foundation and alignment.</p>
-      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>The middle levels strengthen systems and growth.</p>
-      <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>The upper levels expand collaboration and execution.</p>
-      <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Because the structure is sequential, higher levels depend on the stability of what sits below them. When the foundation is unclear, alignment weakens. When alignment weakens, systems strain. When lower levels fracture, execution loses durability.</p>
-      <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>The Compass makes this structure visible.</p>
-      <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>It does not remove complexity from life. It organizes it into something workable so progress can be built intentionally rather than reactively.</p>
-      <p style={{ margin: 0, lineHeight: 1.5 }}>Used well, the Compass becomes a repeatable architecture for strengthening or building the areas of life where productivity matters most and where transformation becomes essential.</p>
+      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>The Compass is a structured framework for navigating life&apos;s most meaningful situations with clarity and agency.</p>
+      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>It rests on two foundational ideas.</p>
+      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>First, it simplifies the complexity of the many situations we navigate in life into four universal postures of responsibility and contribution: Achiever, Leader, Partner, and Follower.</p>
+      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>These are not titles or fixed identities. They are the functional postures people adopt—often without realizing it—when navigating situations with others. Understanding the responsibility of each posture makes it possible to explore alternatives and consciously choose the one that best serves the moment.</p>
+      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>Second, it provides a sequential architecture for intentional progress through nine principles arranged as a pyramid, with each level building on the one beneath it.</p>
+      <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem", lineHeight: 1.5 }}>
+        <li style={{ marginBottom: "0.25rem" }}>The lower levels establish foundation and alignment.</li>
+        <li style={{ marginBottom: "0.25rem" }}>The middle levels strengthen systems and growth.</li>
+        <li>The upper levels expand collaboration and execution.</li>
+      </ul>
+      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>Because the structure is sequential, higher levels depend on the stability of what sits below them. When the foundation is unclear, alignment weakens. When alignment weakens, systems strain. When lower levels fracture, execution loses durability.</p>
+      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>For many people, simply understanding the structure can unlock an immediate shift in perspective. Once the relationship between posture of contribution and sequence of progress becomes visible, it often changes how situations are interpreted even when the Compass is not being used formally.</p>
+      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>The Compass does not provide answers on its own.</p>
+      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>Instead, it provides a structure for navigating complex situations deliberately. By examining real circumstances using the framework, you can explore where default postures between you and others may be conflicting, where priorities may be misaligned with the natural sequence of progress, and what forms of contribution might move the situation forward most constructively.</p>
+      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>In many cases, this exploration surfaces instability or misalignment that was not obvious at first. Through reflection and purposeful questioning, the framework helps bring those underlying dynamics into clearer view, revealing where purpose may be unclear, progress may be stalled, systems or growth may be limiting momentum, collaboration may be strained, or execution may lack focus.</p>
+      <p style={{ margin: 0, lineHeight: 1.5 }}>Used well, the Compass can become a repeatable architecture for examining challenges, strengthening the roles we play with others, and building intentional progress in the areas of life that matter most.</p>
     </>
-  ),
-};
+);
+
+/** In Practice sub-tabs for the Compass lightbox. */
+const COMPASS_TITLE_IN_PRACTICE_SUBTABS: { id: string; label: string; content: ReactNode }[] = [
+  {
+    id: "compass-graphic",
+    label: "Compass Graphic",
+    content: (
+      <>
+        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>The graphic on the left represents the visual and interactive structure of the Compass.</p>
+        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>The framework is organized around four Compass roles positioned at the four cardinal points of the graphic:</p>
+        <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem", lineHeight: 1.5 }}>
+          <li style={{ marginBottom: "0.5rem" }}><strong>Achiever (North)</strong> — Responsible for personal clarity, ownership, and execution. The Compass app always loads with the Achiever at the top because true agency begins with getting clear inside yourself first.</li>
+          <li style={{ marginBottom: "0.5rem" }}><strong>Leader (East)</strong> — Responsible for setting vision, direction, and guidance for others.</li>
+          <li style={{ marginBottom: "0.5rem" }}><strong>Partner (West)</strong> — Responsible for building trust, collaboration, and shared progress.</li>
+          <li><strong>Follower (South)</strong> — Responsible for learning, support, and strengthening existing systems.</li>
+        </ul>
+        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>These are not job titles or identities. They are functional postures people adopt when navigating situations with others. In real life we move between them constantly, often without noticing.</p>
+        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>Beneath each role sits the same pyramid of development: five levels supported by nine principles.</p>
+        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>The levels move from foundational clarity to focused execution:</p>
+        <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem", lineHeight: 1.5 }}>
+          <li style={{ marginBottom: "0.2rem" }}>Foundation</li>
+          <li style={{ marginBottom: "0.2rem" }}>Alignment</li>
+          <li style={{ marginBottom: "0.2rem" }}>Systems &amp; Growth</li>
+          <li style={{ marginBottom: "0.2rem" }}>Collaboration</li>
+          <li>Execution</li>
+        </ul>
+        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>Each level contains one or more principles that strengthen the role above it. Because the structure is sequential, higher levels depend on the stability of the ones below them.</p>
+        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>In the app, the Compass rotates by bringing a role to the top when you click any interactive element within the pyramids beneath each role. This allows you to explore each role individually and see how the same levels and principles apply through different postures of contribution.</p>
+        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>Throughout the Compass graphic you will see information icons. These open short explanations describing the responsibilities of each role, level, and principle in more detail.</p>
+        <p style={{ margin: 0, lineHeight: 1.5 }}>The graphic is designed to be explored freely. As you interact with it, the structure of the Compass becomes easier to see and apply to real situations.</p>
+      </>
+    ),
+  },
+  {
+    id: "compass-module",
+    label: "Compass Module",
+    content: (
+      <>
+        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>While the Compass is a framework, it&apos;s also an interactive tool that works in three powerful ways.</p>
+        <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem", lineHeight: 1.5 }}>
+          <li style={{ marginBottom: "0.5rem" }}><strong>Thinking tool</strong> — Reflect on how you are showing up within the responsibilities and relationships that shape your life.</li>
+          <li style={{ marginBottom: "0.5rem" }}><strong>Mining tool</strong> — Uncover meaningful situations that may not be immediately visible.</li>
+          <li><strong>Action tool</strong> — Work through situations, pursue meaningful wants, and track larger transformations over time.</li>
+        </ul>
+        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>The app organizes this work across three navigation panels containing five modules where the Compass can be applied.</p>
+        <p style={{ margin: "0 0 0.35rem", lineHeight: 1.5 }}><strong>Roles &amp; Relationships</strong></p>
+        <p style={{ margin: "0 0 0.25rem", lineHeight: 1.5 }}>The Roles &amp; Relationships tab contains:</p>
+        <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem", lineHeight: 1.5 }}>
+          <li style={{ marginBottom: "0.5rem" }}><strong>Life Roles</strong> — The responsibilities or identities you carry in life—such as parent, friend, volunteer, or business owner.</li>
+          <li><strong>Shared Growth</strong> — The people connected to those responsibilities—partners, family members, colleagues, teammates, managers, or employees.</li>
+        </ul>
+        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>In these modules you define the roles you carry and the people you share them with, then use the Compass as a thinking or mining tool to reflect on how you are showing up within those relationships.</p>
+        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>Open the &quot;i&quot; icons in each module for deeper explanations.</p>
+        <p style={{ margin: "0 0 0.35rem", lineHeight: 1.5 }}><strong>Meaningful Work</strong></p>
+        <p style={{ margin: "0 0 0.25rem", lineHeight: 1.5 }}>The Meaningful Work tab contains:</p>
+        <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem", lineHeight: 1.5 }}>
+          <li style={{ marginBottom: "0.5rem" }}><strong>Situations</strong> — Circumstances that deserve attention because they contain meaningful opportunities or obstacles.</li>
+          <li style={{ marginBottom: "0.5rem" }}><strong>Wants</strong> — Goals that require sustained effort to pursue, achieve, or resolve.</li>
+          <li><strong>Transformations</strong> — Major shifts in direction or perspective that emerge through sustained pursuit.</li>
+        </ul>
+        <p style={{ margin: "0.5rem 0 0.25rem", lineHeight: 1.5 }}>These modules follow a nesting structure:</p>
+        <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem", lineHeight: 1.5 }}>
+          <li style={{ marginBottom: "0.2rem" }}>Situations stand alone.</li>
+          <li style={{ marginBottom: "0.2rem" }}>Wants can contain multiple situations.</li>
+          <li>Transformations can contain multiple wants.</li>
+        </ul>
+        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>This area allows the Compass to function as a thinking, mining, and action tool.</p>
+        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>Open the &quot;i&quot; icons within each module to learn how they work.</p>
+        <p style={{ margin: "0 0 0.35rem", lineHeight: 1.5 }}><strong>Total System View</strong></p>
+        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>The Total System View simply displays all five modules together.</p>
+        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You can explore the Compass in any way that feels useful. Informational icons throughout the system provide deeper explanations of roles, levels, principles, and modules.</p>
+        <p style={{ margin: 0, lineHeight: 1.5 }}>Most people begin by defining their Life Roles, since these represent the areas of life where responsibility and attention naturally live.</p>
+      </>
+    ),
+  },
+];
+
+function LightboxWithOverviewAndPractice({
+  title,
+  onClose,
+  overviewContent,
+  inPracticeContent,
+  inPracticeSubTabs,
+  maxWidth = 720,
+  maxHeight = "85vh",
+}: {
+  title: string;
+  onClose: () => void;
+  overviewContent: ReactNode;
+  inPracticeContent?: ReactNode;
+  /** When provided, In Practice shows these sub-tabs instead of a single inPracticeContent. */
+  inPracticeSubTabs?: { id: string; label: string; content: ReactNode }[];
+  maxWidth?: number;
+  maxHeight?: string | number;
+}) {
+  const [tab, setTab] = useState<"overview" | "in-practice">("overview");
+  const [subTabId, setSubTabId] = useState<string | null>(inPracticeSubTabs?.[0]?.id ?? null);
+  const hasSubTabs = inPracticeSubTabs && inPracticeSubTabs.length > 0;
+  const activeSubTab = hasSubTabs && subTabId ? inPracticeSubTabs.find((t) => t.id === subTabId) : null;
+  const inPracticeBody = hasSubTabs && activeSubTab ? activeSubTab.content : inPracticeContent;
+
+  return (
+    <Lightbox title={title} onClose={onClose} maxWidth={maxWidth} maxHeight={maxHeight}>
+      <div>
+        <div style={{ display: "flex", gap: 20, marginBottom: 16, borderBottom: "2px solid rgba(255,255,255,0.15)", paddingBottom: 0 }}>
+          <button
+            type="button"
+            onClick={() => setTab("overview")}
+            style={{
+              background: "none",
+              border: "none",
+              borderBottom: tab === "overview" ? "3px solid white" : "3px solid transparent",
+              color: tab === "overview" ? "#fff" : "rgba(255,255,255,0.65)",
+              cursor: "pointer",
+              fontSize: 17,
+              fontWeight: tab === "overview" ? 700 : 600,
+              padding: "10px 0",
+              marginBottom: -2,
+            }}
+          >
+            Overview
+          </button>
+          <button
+            type="button"
+            onClick={() => { setTab("in-practice"); if (hasSubTabs && inPracticeSubTabs?.[0]) setSubTabId(inPracticeSubTabs[0].id); }}
+            style={{
+              background: "none",
+              border: "none",
+              borderBottom: tab === "in-practice" ? "3px solid white" : "3px solid transparent",
+              color: tab === "in-practice" ? "#fff" : "rgba(255,255,255,0.65)",
+              cursor: "pointer",
+              fontSize: 17,
+              fontWeight: tab === "in-practice" ? 700 : 600,
+              padding: "10px 0",
+              marginBottom: -2,
+            }}
+          >
+            In Practice
+          </button>
+        </div>
+        {tab === "in-practice" && hasSubTabs && (
+          <div style={{ marginBottom: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {inPracticeSubTabs.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setSubTabId(t.id)}
+                  style={{
+                    background: subTabId === t.id ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.06)",
+                    border: subTabId === t.id ? "1px solid rgba(255,255,255,0.5)" : "1px solid rgba(255,255,255,0.2)",
+                    borderRadius: 8,
+                    color: subTabId === t.id ? "#fff" : "rgba(255,255,255,0.8)",
+                    cursor: "pointer",
+                    fontSize: 15,
+                    fontWeight: subTabId === t.id ? 700 : 600,
+                    padding: "10px 18px",
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+          </div>
+        )}
+        <div style={{ padding: "0.5rem 0", height: "60vh", overflowY: "auto", color: "rgba(255,255,255,0.9)" }}>
+          {tab === "overview" && overviewContent}
+          {tab === "in-practice" && inPracticeBody}
+        </div>
+      </div>
+    </Lightbox>
+  );
+}
 
 function PrincipleLightboxWithTabs({
   title,
@@ -959,11 +1132,14 @@ export default function Compass({
     </div>
 
     {lightboxCompassTitle && (
-      <Lightbox title={COMPASS_TITLE_LIGHTBOX.title} onClose={() => setLightboxCompassTitle(false)} maxWidth={720}>
-        <div style={{ padding: "1rem 0", minHeight: 120, color: "rgba(255,255,255,0.9)" }}>
-          {COMPASS_TITLE_LIGHTBOX.body}
-        </div>
-      </Lightbox>
+      <LightboxWithOverviewAndPractice
+        title="The Compass"
+        onClose={() => setLightboxCompassTitle(false)}
+        overviewContent={COMPASS_TITLE_OVERVIEW}
+        inPracticeSubTabs={COMPASS_TITLE_IN_PRACTICE_SUBTABS}
+        maxWidth={1200}
+        maxHeight="95vh"
+      />
     )}
 
     {lightboxRole && (
@@ -1108,11 +1284,13 @@ function Lightbox({
   onClose,
   children,
   maxWidth = 720,
+  maxHeight = "85vh",
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   maxWidth?: number;
+  maxHeight?: string | number;
 }) {
   return (
     <div
@@ -1121,11 +1299,12 @@ function Lightbox({
         inset: 0,
         zIndex: 1000,
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
         justifyContent: "center",
-        padding: 24,
+        padding: "24px 16px",
         background: "rgba(0,0,0,0.6)",
         backdropFilter: "blur(4px)",
+        overflowY: "auto",
       }}
       onClick={onClose}
     >
@@ -1137,8 +1316,9 @@ function Lightbox({
           boxShadow: "0 24px 80px rgba(0,0,0,0.5)",
           maxWidth,
           width: "100%",
-          maxHeight: "85vh",
+          maxHeight: "calc(100vh - 48px)",
           overflow: "auto",
+          flexShrink: 0,
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -1151,7 +1331,7 @@ function Lightbox({
             borderBottom: "1px solid rgba(255,255,255,0.12)",
           }}
         >
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "white" }}>{title}</h2>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: "white" }}>{title}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -1169,7 +1349,7 @@ function Lightbox({
             ×
           </button>
         </div>
-        <div style={{ padding: "24px 40px 32px", fontSize: 17, lineHeight: 1.6 }}>{children}</div>
+        <div style={{ padding: "32px 56px 40px", fontSize: 17, lineHeight: 1.6 }}>{children}</div>
       </div>
     </div>
   );
