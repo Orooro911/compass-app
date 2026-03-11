@@ -1,6 +1,11 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
+import { ACHIEVER_ROLE_TITLE, ACHIEVER_OVERVIEW, ACHIEVER_IN_PRACTICE } from "./content/achieverRoleContent";
+import { COMPASS_FRAMEWORK } from "./content/compassFrameworkContent";
+import { getPrincipleContent } from "./content/principleAndLevelContent";
+import { renderBlocksToInline } from "./content/renderBlocks";
+import type { InfoBlock } from "./dashboard/infoContent";
 
 type Role = "Achiever" | "Leader" | "Follower" | "Partner";
 
@@ -19,31 +24,8 @@ function shortestPathAngle(currentDeg: number, targetDeg: number): number {
   return currentDeg + delta;
 }
 
-// Content for each role's lightbox (opened by the "i" icon next to the role label)
-const ROLE_LIGHTBOX: Record<Role, { title: string; body: ReactNode }> = {
-  Achiever: {
-    title: "Responsibility of the Achiever",
-    body: (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", alignItems: "start", fontSize: 17, lineHeight: 1.5, marginBottom: -4 }}>
-        <div>
-          <p style={{ margin: "0 0 0.4rem", lineHeight: 1.45 }}>The Achiever sits North on the Compass.</p>
-          <p style={{ margin: "0 0 0.4rem", lineHeight: 1.45 }}>North isn&apos;t a position of superiority—it&apos;s direction. It&apos;s where clarity turns into motion, where knowing becomes doing.</p>
-          <p style={{ margin: "0 0 0.4rem", lineHeight: 1.45 }}>This is the posture we step into when something meaningful calls us forward.</p>
-          <p style={{ margin: "0 0 0.4rem", lineHeight: 1.45 }}>Its truth is simple but non-negotiable: No one else can carry our clarity for us. And no one else can build our life.</p>
-          <p style={{ margin: "0 0 0.4rem", lineHeight: 1.45 }}>That&apos;s why orienting here comes first—not because we will always operate from this Compass Role, but because this is where we ask: What do I want? What&apos;s worth pursuing? What am I willing to carry?</p>
-          <p style={{ margin: "0 0 0.4rem", lineHeight: 1.45 }}>We have a responsibility to be in pursuit. Not in frantic motion. Not in endless striving. But in steady alignment with what matters most.</p>
-          <p style={{ margin: "0 0 0.4rem", lineHeight: 1.45 }}>Because the greatest way to honor being here isn&apos;t just to feel grateful for it—it&apos;s to live like it matters. To shape something. To stretch. To build.</p>
-        </div>
-        <div>
-          <p style={{ margin: "0 0 0.4rem", lineHeight: 1.45 }}>There will be seasons when we need to tend, recover, or care for others. That&apos;s part of being human. But when the space opens again, this is where we return—not just to rebuild energy, but to remember who we are and what we&apos;re here to make better.</p>
-          <p style={{ margin: "0 0 0.4rem", lineHeight: 1.45 }}>Others are navigating their own version of this role too. Their urgency, resistance, or confusion often trace back to wants they&apos;re pursuing—or ones they&apos;ve yet to claim.</p>
-          <p style={{ margin: "0 0 0.4rem", lineHeight: 1.45 }}>When we see that, we meet them with more grace. We become better collaborators, parents, and partners—not by solving their problems, but by holding space for their authorship to unfold. Because when people feel seen, they move differently.</p>
-          <p style={{ margin: "0 0 0.4rem", lineHeight: 1.45 }}>The Achiever role is where authorship lives. Not because it&apos;s loud. Not because it&apos;s always clear. But because it turns want into motion—and makes everything else more navigable.</p>
-          <p style={{ margin: 0, lineHeight: 1.45 }}>Make space for what matters most. And take responsibility for moving toward it.</p>
-        </div>
-      </div>
-    ),
-  },
+// Content for role lightboxes (Achiever uses Overview/In Practice tabs from achieverRoleContent.ts)
+const ROLE_LIGHTBOX: Record<Exclude<Role, "Achiever">, { title: string; body: ReactNode }> = {
   Leader: {
     title: "Responsibility of the Leader",
     body: (
@@ -119,50 +101,6 @@ const ROLE_LIGHTBOX: Record<Role, { title: string; body: ReactNode }> = {
     ),
   },
 };
-
-// Content for each principle chip (P1–P9) per role — key: "Role-P1" etc. (opened by clicking P1, P2, … in a pyramid)
-const PRINCIPLE_LIGHTBOX: Record<string, { title: string; body: ReactNode }> = {
-  "Achiever-P1": { title: "Achiever Principle 1: Evaluate Opportunities and Obstacles", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Evaluate what&apos;s fueling or blocking momentum. Act to overcome obstacles with self-discipline.</p> },
-  "Achiever-P2": { title: "Achiever Principle 2: Understand Style and Mindset", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Understand how beliefs drive performance. Act to strengthen focus and discipline under pressure.</p> },
-  "Achiever-P3": { title: "Achiever Principle 3: Envision an Ideal Future", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Envision the future you want to build. Act with determination to turn vision into reality.</p> },
-  "Achiever-P4": { title: "Achiever Principle 4: Set Measurable Objectives", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees the markers that show real advancement, and acts with discipline to reach them with consistency.</p> },
-  "Achiever-P5": { title: "Achiever Principle 5: Prioritize What Matters", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees where energy creates progress or waste, and acts with discipline to protect focus on the highest-value actions.</p> },
-  "Achiever-P6": { title: "Achiever Principle 6: Build Effective Systems", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees which routines sustain focus and energy, and acts to refine them for steady growth.</p> },
-  "Achiever-P7": { title: "Achiever Principle 7: Invest in Personal Development", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees how new growth fuels progress, and acts with discipline to develop themselves and others.</p> },
-  "Achiever-P8": { title: "Achiever Principle 8: Engage with Collaborators", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees how collaboration sharpens quality and reach, and acts to invite feedback and refine what&apos;s being built.</p> },
-  "Achiever-P9": { title: "Achiever Principle 9: Maintain a Laser Focus on Execution", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees the gap between plan and outcome, and acts with urgency and precision to close it.</p> },
-  "Leader-P1": { title: "Leader Principle 1: Evaluate Opportunities and Obstacles", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Look ahead to anticipate challenges and openings. Act to guide others toward a better way forward.</p> },
-  "Leader-P2": { title: "Leader Principle 2: Understand Style and Mindset", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Understand how attitudes shape direction. Act to model the right mindset for the path ahead.</p> },
-  "Leader-P3": { title: "Leader Principle 3: Envision an Ideal Future", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Envision what&apos;s possible beyond the present. Act to paint a clear picture that inspires others to believe in it.</p> },
-  "Leader-P4": { title: "Leader Principle 4: Set Measurable Objectives", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees which aims best express an established vision, and acts to define clear markers that focus and unify effort.</p> },
-  "Leader-P5": { title: "Leader Principle 5: Prioritize What Matters", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees which current priorities help or hinder key outcomes, and acts to eliminate drag and focus energy where it matters most.</p> },
-  "Leader-P6": { title: "Leader Principle 6: Build Effective Systems", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees where structure or rhythm can strengthen progress, and acts to design systems that make success repeatable.</p> },
-  "Leader-P7": { title: "Leader Principle 7: Invest in Personal Development", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees where growth will strengthen the path ahead, and acts to learn, improve, and model the same for others.</p> },
-  "Leader-P8": { title: "Leader Principle 8: Engage with Collaborators", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees where alignment can expand, and acts to rally, inform, inspire, and recruit others to take part.</p> },
-  "Leader-P9": { title: "Leader Principle 9: Maintain a Laser Focus on Execution", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees where momentum is drifting, and acts to realign focus and drive completion with clarity and consistency.</p> },
-  "Follower-P1": { title: "Follower Principle 1: Evaluate Opportunities and Obstacles", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Evaluate what&apos;s helping or holding things back. Act to share what you notice so progress stays steady.</p> },
-  "Follower-P2": { title: "Follower Principle 2: Understand Style and Mindset", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Understand how outlook influences stability. Act to stay grounded and positive through change.</p> },
-  "Follower-P3": { title: "Follower Principle 3: Envision an Ideal Future", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Envision the larger vision taking shape. Act to align your effort and growth in that direction.</p> },
-  "Follower-P4": { title: "Follower Principle 4: Set Measurable Objectives", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees how their contribution connects to an established vision, and acts to stay accountable to its progress.</p> },
-  "Follower-P5": { title: "Follower Principle 5: Prioritize What Matters", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees which efforts support or distract from established goals, and acts to stay centered on what most advances them.</p> },
-  "Follower-P6": { title: "Follower Principle 6: Build Effective Systems", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees how processes shape consistency, and acts to uphold habits and patterns that keep things running smoothly.</p> },
-  "Follower-P7": { title: "Follower Principle 7: Invest in Personal Development", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees chances to grow in skill or understanding, and acts to apply learning and development to the benefit of the whole.</p> },
-  "Follower-P8": { title: "Follower Principle 8: Engage with Collaborators", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees how shared effort strengthens results, and acts to expand contribution through themselves and others.</p> },
-  "Follower-P9": { title: "Follower Principle 9: Maintain a Laser Focus on Execution", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees what&apos;s needed to finish well, and acts to stay dependable and deliver on the commitments at hand.</p> },
-  "Partner-P1": { title: "Partner Principle 1: Evaluate Opportunities and Obstacles", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Evaluate shifts or tensions between people or priorities. Act to recalibrate for shared progress.</p> },
-  "Partner-P2": { title: "Partner Principle 2: Understand Style and Mindset", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Understand how shared mindset affects connection. Act to restore balance and trust when it drifts.</p> },
-  "Partner-P3": { title: "Partner Principle 3: Envision an Ideal Future", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Envision a shared future that balances needs and aspirations. Act to co-create a path forward for mutual gain.</p> },
-  "Partner-P4": { title: "Partner Principle 4: Set Measurable Objectives", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees shared aims that bring a vision to life, and acts to pursue them for mutual gain.</p> },
-  "Partner-P5": { title: "Partner Principle 5: Prioritize What Matters", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees where competing priorities cause friction or alignment, and acts to rebalance commitments for mutual progress.</p> },
-  "Partner-P6": { title: "Partner Principle 6: Build Effective Systems", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees where shared systems can ease friction, and acts to build simple, reliable ways to make things better.</p> },
-  "Partner-P7": { title: "Partner Principle 7: Invest in Personal Development", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees how shared growth builds trust and results, and acts to learn and improve together.</p> },
-  "Partner-P8": { title: "Partner Principle 8: Engage with Collaborators", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees how trust and openness amplify impact, and acts to communicate, coordinate, and expand shared growth together.</p> },
-  "Partner-P9": { title: "Partner Principle 9: Maintain a Laser Focus on Execution", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Sees how shared effort sustains results, and acts to stay coordinated and accountable until a shared vision is complete.</p> },
-};
-function getPrincipleLightbox(role: Role, principle: string) {
-  const key = `${role}-${principle}`;
-  return PRINCIPLE_LIGHTBOX[key] ?? { title: `${principle} — ${role}`, body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for {principle} ({role}) here.</p> };
-}
 
 // Content for each level icon (5 levels × 4 roles = 20). Key: "Role-LevelIndex" (LevelIndex 0–4).
 const LEVEL_LIGHTBOX: Record<string, { title: string; body: ReactNode }> = {
@@ -359,109 +297,13 @@ function getLevelLightbox(role: Role, levelIndex: number) {
   return LEVEL_LIGHTBOX[key] ?? { title: `${role} Level ${levelIndex + 1}`, body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for {role} Level {levelIndex + 1} here.</p> };
 }
 
-const COMPASS_TITLE_OVERVIEW = (
-    <>
-      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>The Compass is a structured framework for navigating life&apos;s most meaningful situations with clarity and agency.</p>
-      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>It rests on two foundational ideas.</p>
-      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>First, it simplifies the complexity of the many situations we navigate in life into four universal postures of responsibility and contribution: Achiever, Leader, Partner, and Follower.</p>
-      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>These are not titles or fixed identities. They are the functional postures people adopt—often without realizing it—when navigating situations with others. Understanding the responsibility of each posture makes it possible to explore alternatives and consciously choose the one that best serves the moment.</p>
-      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>Second, it provides a sequential architecture for intentional progress through nine principles arranged as a pyramid, with each level building on the one beneath it.</p>
-      <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem", lineHeight: 1.5 }}>
-        <li style={{ marginBottom: "0.25rem" }}>The lower levels establish foundation and alignment.</li>
-        <li style={{ marginBottom: "0.25rem" }}>The middle levels strengthen systems and growth.</li>
-        <li>The upper levels expand collaboration and execution.</li>
-      </ul>
-      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>Because the structure is sequential, higher levels depend on the stability of what sits below them. When the foundation is unclear, alignment weakens. When alignment weakens, systems strain. When lower levels fracture, execution loses durability.</p>
-      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>For many people, simply understanding the structure can unlock an immediate shift in perspective. Once the relationship between posture of contribution and sequence of progress becomes visible, it often changes how situations are interpreted even when the Compass is not being used formally.</p>
-      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>The Compass does not provide answers on its own.</p>
-      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>Instead, it provides a structure for navigating complex situations deliberately. By examining real circumstances using the framework, you can explore where default postures between you and others may be conflicting, where priorities may be misaligned with the natural sequence of progress, and what forms of contribution might move the situation forward most constructively.</p>
-      <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>In many cases, this exploration surfaces instability or misalignment that was not obvious at first. Through reflection and purposeful questioning, the framework helps bring those underlying dynamics into clearer view, revealing where purpose may be unclear, progress may be stalled, systems or growth may be limiting momentum, collaboration may be strained, or execution may lack focus.</p>
-      <p style={{ margin: 0, lineHeight: 1.5 }}>Used well, the Compass can become a repeatable architecture for examining challenges, strengthening the roles we play with others, and building intentional progress in the areas of life that matter most.</p>
-    </>
-);
-
-/** In Practice sub-tabs for the Compass lightbox. */
-const COMPASS_TITLE_IN_PRACTICE_SUBTABS: { id: string; label: string; content: ReactNode }[] = [
-  {
-    id: "compass-graphic",
-    label: "Compass Graphic",
-    content: (
-      <>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>The graphic on the left represents the visual and interactive structure of the Compass.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>The framework is organized around four Compass roles positioned at the four cardinal points of the graphic:</p>
-        <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem", lineHeight: 1.5 }}>
-          <li style={{ marginBottom: "0.5rem" }}><strong>Achiever (North)</strong> — Responsible for personal clarity, ownership, and execution. The Compass app always loads with the Achiever at the top because true agency begins with getting clear inside yourself first.</li>
-          <li style={{ marginBottom: "0.5rem" }}><strong>Leader (East)</strong> — Responsible for setting vision, direction, and guidance for others.</li>
-          <li style={{ marginBottom: "0.5rem" }}><strong>Partner (West)</strong> — Responsible for building trust, collaboration, and shared progress.</li>
-          <li><strong>Follower (South)</strong> — Responsible for learning, support, and strengthening existing systems.</li>
-        </ul>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>These are not job titles or identities. They are functional postures people adopt when navigating situations with others. In real life we move between them constantly, often without noticing.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>Beneath each role sits the same pyramid of development: five levels supported by nine principles.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>The levels move from foundational clarity to focused execution:</p>
-        <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem", lineHeight: 1.5 }}>
-          <li style={{ marginBottom: "0.2rem" }}>Foundation</li>
-          <li style={{ marginBottom: "0.2rem" }}>Alignment</li>
-          <li style={{ marginBottom: "0.2rem" }}>Systems &amp; Growth</li>
-          <li style={{ marginBottom: "0.2rem" }}>Collaboration</li>
-          <li>Execution</li>
-        </ul>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>Each level contains one or more principles that strengthen the role above it. Because the structure is sequential, higher levels depend on the stability of the ones below them.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>In the app, the Compass rotates by bringing a role to the top when you click any interactive element within the pyramids beneath each role. This allows you to explore each role individually and see how the same levels and principles apply through different postures of contribution.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>Throughout the Compass graphic you will see information icons. These open short explanations describing the responsibilities of each role, level, and principle in more detail.</p>
-        <p style={{ margin: 0, lineHeight: 1.5 }}>The graphic is designed to be explored freely. As you interact with it, the structure of the Compass becomes easier to see and apply to real situations.</p>
-      </>
-    ),
-  },
-  {
-    id: "compass-module",
-    label: "Compass Module",
-    content: (
-      <>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>While the Compass is a framework, it&apos;s also an interactive tool that works in three powerful ways.</p>
-        <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem", lineHeight: 1.5 }}>
-          <li style={{ marginBottom: "0.5rem" }}><strong>Thinking tool</strong> — Reflect on how you are showing up within the responsibilities and relationships that shape your life.</li>
-          <li style={{ marginBottom: "0.5rem" }}><strong>Mining tool</strong> — Uncover meaningful situations that may not be immediately visible.</li>
-          <li><strong>Action tool</strong> — Work through situations, pursue meaningful wants, and track larger transformations over time.</li>
-        </ul>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>The app organizes this work across three navigation panels containing five modules where the Compass can be applied.</p>
-        <p style={{ margin: "0 0 0.35rem", lineHeight: 1.5 }}><strong>Roles &amp; Relationships</strong></p>
-        <p style={{ margin: "0 0 0.25rem", lineHeight: 1.5 }}>The Roles &amp; Relationships tab contains:</p>
-        <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem", lineHeight: 1.5 }}>
-          <li style={{ marginBottom: "0.5rem" }}><strong>Life Roles</strong> — The responsibilities or identities you carry in life—such as parent, friend, volunteer, or business owner.</li>
-          <li><strong>Shared Growth</strong> — The people connected to those responsibilities—partners, family members, colleagues, teammates, managers, or employees.</li>
-        </ul>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>In these modules you define the roles you carry and the people you share them with, then use the Compass as a thinking or mining tool to reflect on how you are showing up within those relationships.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>Open the &quot;i&quot; icons in each module for deeper explanations.</p>
-        <p style={{ margin: "0 0 0.35rem", lineHeight: 1.5 }}><strong>Meaningful Work</strong></p>
-        <p style={{ margin: "0 0 0.25rem", lineHeight: 1.5 }}>The Meaningful Work tab contains:</p>
-        <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem", lineHeight: 1.5 }}>
-          <li style={{ marginBottom: "0.5rem" }}><strong>Situations</strong> — Circumstances that deserve attention because they contain meaningful opportunities or obstacles.</li>
-          <li style={{ marginBottom: "0.5rem" }}><strong>Wants</strong> — Goals that require sustained effort to pursue, achieve, or resolve.</li>
-          <li><strong>Transformations</strong> — Major shifts in direction or perspective that emerge through sustained pursuit.</li>
-        </ul>
-        <p style={{ margin: "0.5rem 0 0.25rem", lineHeight: 1.5 }}>These modules follow a nesting structure:</p>
-        <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem", lineHeight: 1.5 }}>
-          <li style={{ marginBottom: "0.2rem" }}>Situations stand alone.</li>
-          <li style={{ marginBottom: "0.2rem" }}>Wants can contain multiple situations.</li>
-          <li>Transformations can contain multiple wants.</li>
-        </ul>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>This area allows the Compass to function as a thinking, mining, and action tool.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>Open the &quot;i&quot; icons within each module to learn how they work.</p>
-        <p style={{ margin: "0 0 0.35rem", lineHeight: 1.5 }}><strong>Total System View</strong></p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>The Total System View simply displays all five modules together.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You can explore the Compass in any way that feels useful. Informational icons throughout the system provide deeper explanations of roles, levels, principles, and modules.</p>
-        <p style={{ margin: 0, lineHeight: 1.5 }}>Most people begin by defining their Life Roles, since these represent the areas of life where responsibility and attention naturally live.</p>
-      </>
-    ),
-  },
-];
-
 function LightboxWithOverviewAndPractice({
   title,
   onClose,
   overviewContent,
   inPracticeContent,
   inPracticeSubTabs,
+  inPracticeSubTabFooter,
   maxWidth = 720,
   maxHeight = "85vh",
 }: {
@@ -471,6 +313,8 @@ function LightboxWithOverviewAndPractice({
   inPracticeContent?: ReactNode;
   /** When provided, In Practice shows these sub-tabs instead of a single inPracticeContent. */
   inPracticeSubTabs?: { id: string; label: string; content: ReactNode }[];
+  /** Optional footer shown below In Practice body for a given sub-tab (e.g. CTA link). */
+  inPracticeSubTabFooter?: (subTabId: string) => ReactNode;
   maxWidth?: number;
   maxHeight?: string | number;
 }) {
@@ -546,6 +390,7 @@ function LightboxWithOverviewAndPractice({
           {tab === "overview" && overviewContent}
           {tab === "in-practice" && inPracticeBody}
         </div>
+        {tab === "in-practice" && subTabId && inPracticeSubTabFooter?.(subTabId)}
       </div>
     </Lightbox>
   );
@@ -554,28 +399,31 @@ function LightboxWithOverviewAndPractice({
 function PrincipleLightboxWithTabs({
   title,
   onClose,
-  body,
-  hasSituationTab,
+  overviewContent,
+  inPracticeContent,
+  hasApplyTab,
   userContent,
   onUserContentChange,
 }: {
   title: string;
   onClose: () => void;
-  body: ReactNode;
-  hasSituationTab: boolean;
+  overviewContent: ReactNode;
+  inPracticeContent: ReactNode;
+  /** When true, show the Apply tab (editable content for Situation/Want/Transformation). */
+  hasApplyTab: boolean;
   userContent: string;
   onUserContentChange: (value: string) => void;
 }) {
-  const [tab, setTab] = useState<"content" | "think" | "entered">(hasSituationTab ? "entered" : "content");
-  const tabs = hasSituationTab
+  const [tab, setTab] = useState<"overview" | "in-practice" | "apply">(hasApplyTab ? "apply" : "overview");
+  const tabs = hasApplyTab
     ? [
-        { id: "content" as const, label: "Content" },
-        { id: "think" as const, label: "How to think" },
-        { id: "entered" as const, label: "What I entered" },
+        { id: "overview" as const, label: "Overview" },
+        { id: "in-practice" as const, label: "In Practice" },
+        { id: "apply" as const, label: "Apply" },
       ]
     : [
-        { id: "content" as const, label: "Content" },
-        { id: "think" as const, label: "How to think" },
+        { id: "overview" as const, label: "Overview" },
+        { id: "in-practice" as const, label: "In Practice" },
       ];
 
   return (
@@ -601,11 +449,9 @@ function PrincipleLightboxWithTabs({
           ))}
         </div>
         <div style={{ padding: "0.5rem 0", minHeight: 120, color: "rgba(255,255,255,0.9)" }}>
-          {tab === "content" && body}
-          {tab === "think" && (
-            <p style={{ margin: 0, lineHeight: 1.5 }}>Reflect on how this principle applies to your situation. What would it look like to embody it? What might get in the way?</p>
-          )}
-          {tab === "entered" && (
+          {tab === "overview" && overviewContent}
+          {tab === "in-practice" && inPracticeContent}
+          {tab === "apply" && (
             <textarea
               value={userContent}
               onChange={(e) => onUserContentChange(e.target.value)}
@@ -645,6 +491,10 @@ type CompassProps = {
   onSituationPrincipleContentChange?: (situation: string, principle: string, content: string) => void;
   openPrincipleId?: string | null;
   onPrincipleLightboxClose?: () => void;
+  /** When this value increments, the Compass Framework info lightbox opens (e.g. from dashboard CTA). */
+  openCompassFrameworkTrigger?: number;
+  /** Called when user clicks the "Start Adding Life Roles" CTA in the Compass Module sub-tab (closes Compass lightbox and opens Life Roles info). */
+  onOpenLifeRolesInfo?: () => void;
 };
 
 export default function Compass({
@@ -657,6 +507,8 @@ export default function Compass({
   onSituationPrincipleContentChange,
   openPrincipleId = null,
   onPrincipleLightboxClose,
+  openCompassFrameworkTrigger,
+  onOpenLifeRolesInfo,
 }: CompassProps) {
   const effectiveActive = activePrincipleItem ?? (activeSituation ? { moduleId: "situations" as const, name: activeSituation } : null);
   const content = Object.keys(itemPrincipleContent).length > 0 ? itemPrincipleContent : situationPrincipleContent;
@@ -677,6 +529,17 @@ export default function Compass({
       setLightboxPrinciple({ role: "Achiever", principle: openPrincipleId });
     }
   }, [openPrincipleId, effectiveActive]);
+
+  const openCompassFrameworkTriggerPrev = useRef(0);
+  useEffect(() => {
+    if (openCompassFrameworkTrigger != null && openCompassFrameworkTrigger > openCompassFrameworkTriggerPrev.current) {
+      openCompassFrameworkTriggerPrev.current = openCompassFrameworkTrigger;
+      setLightboxRole(null);
+      setLightboxPrinciple(null);
+      setLightboxLevel(null);
+      setLightboxCompassTitle(true);
+    }
+  }, [openCompassFrameworkTrigger]);
 
   const openCompassTitleLightbox = () => {
     setLightboxRole(null);
@@ -1133,16 +996,53 @@ export default function Compass({
 
     {lightboxCompassTitle && (
       <LightboxWithOverviewAndPractice
-        title="Compass Framework"
+        title={COMPASS_FRAMEWORK.title}
         onClose={() => setLightboxCompassTitle(false)}
-        overviewContent={COMPASS_TITLE_OVERVIEW}
-        inPracticeSubTabs={COMPASS_TITLE_IN_PRACTICE_SUBTABS}
+        overviewContent={renderBlocksToInline(COMPASS_FRAMEWORK.overview)}
+        inPracticeSubTabs={COMPASS_FRAMEWORK.inPracticeSubTabs.map((tab: { id: string; label: string; blocks: InfoBlock[] }) => ({
+          id: tab.id,
+          label: tab.label,
+          content: renderBlocksToInline(tab.blocks),
+        }))}
+        inPracticeSubTabFooter={(subTabId) =>
+          subTabId === "compass-module" && onOpenLifeRolesInfo ? (
+            <p style={{ margin: "1rem 0 0", paddingTop: "1rem", borderTop: "1px solid rgba(255,255,255,0.15)", lineHeight: 1.5 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setLightboxCompassTitle(false);
+                  onOpenLifeRolesInfo();
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  color: "rgba(255,255,255,0.95)",
+                  textDecoration: "underline",
+                  cursor: "pointer",
+                  fontSize: "inherit",
+                  fontWeight: 600,
+                }}
+              >
+                Click Here to Start Adding Life Roles
+              </button>
+            </p>
+          ) : null
+        }
         maxWidth={1200}
         maxHeight="95vh"
       />
     )}
 
-    {lightboxRole && (
+    {lightboxRole && (lightboxRole === "Achiever" ? (
+      <LightboxWithOverviewAndPractice
+        title={ACHIEVER_ROLE_TITLE}
+        onClose={() => setLightboxRole(null)}
+        overviewContent={renderBlocksToInline(ACHIEVER_OVERVIEW)}
+        inPracticeContent={renderBlocksToInline(ACHIEVER_IN_PRACTICE)}
+        maxWidth={720}
+      />
+    ) : (
       <Lightbox
         title={ROLE_LIGHTBOX[lightboxRole].title}
         onClose={() => setLightboxRole(null)}
@@ -1152,12 +1052,13 @@ export default function Compass({
           {ROLE_LIGHTBOX[lightboxRole].body}
         </div>
       </Lightbox>
-    )}
+    ))}
 
     {lightboxPrinciple && (() => {
-      const { title, body } = getPrincipleLightbox(lightboxPrinciple.role, lightboxPrinciple.principle);
-      const hasSituationTab = !!effectiveActive && !!(onPrincipleContentChange ?? onSituationPrincipleContentChange);
+      const { title, overview, inPractice } = getPrincipleContent(lightboxPrinciple.role, lightboxPrinciple.principle);
+      const hasApplyTab = !!effectiveActive && !!(onPrincipleContentChange ?? onSituationPrincipleContentChange);
       const userContent = lookupContent(lightboxPrinciple.principle);
+      const paragraphStyle = { margin: "0 0 0.5rem", lineHeight: 1.5 as const };
 
       const handleClose = () => {
         setLightboxPrinciple(null);
@@ -1168,8 +1069,9 @@ export default function Compass({
         <PrincipleLightboxWithTabs
           title={title}
           onClose={handleClose}
-          body={body}
-          hasSituationTab={hasSituationTab}
+          overviewContent={<p style={paragraphStyle}>{overview}</p>}
+          inPracticeContent={<p style={paragraphStyle}>{inPractice}</p>}
+          hasApplyTab={hasApplyTab}
           userContent={userContent}
           onUserContentChange={(v) => effectiveActive && handleContentChange?.(effectiveActive.moduleId, effectiveActive.name, lightboxPrinciple.principle, v)}
         />

@@ -4,6 +4,15 @@ import Compass from "../Compass";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import {
+  DASHBOARD_INFO,
+  LIFE_ROLES_INFO,
+  SHARED_GROWTH_INFO,
+  SITUATIONS_INFO,
+  WANTS_INFO,
+  TRANSFORMATIONS_INFO,
+  type InfoBlock,
+} from "./infoContent";
 const MODULES = [
   { id: "life-roles", title: "Life Roles", description: "Your fixed identities—job title, parent, friend, volunteer, business owner.", items: ["Parent", "Software Engineer", "Volunteer", "Friend", "Mentor"] },
   { id: "shared-growth", title: "Shared Growth", description: "The people you share your life with—partner, family, colleagues.", items: ["Partner", "Team", "Kids", "Manager", "Direct reports"] },
@@ -168,6 +177,46 @@ function Lightbox({
         </div>
         <div className="px-10 py-6">{children}</div>
       </div>
+    </div>
+  );
+}
+
+function renderInfoBlocks(blocks: InfoBlock[]) {
+  return (
+    <div className="space-y-5 text-[17px] text-white/90 leading-[1.6]">
+      {blocks.map((block, i) => {
+        if (block.type === "p") {
+          return (
+            <p key={i} className={block.className ?? "m-0"}>
+              {block.text}
+            </p>
+          );
+        }
+        if (block.type === "pStrong") {
+          return (
+            <p key={i} className="m-0 font-semibold text-white/95">
+              {block.text}
+            </p>
+          );
+        }
+        if (block.type === "h3") {
+          return (
+            <h3 key={i} className="text-white font-semibold mt-6 mb-2">
+              {block.text}
+            </h3>
+          );
+        }
+        if (block.type === "ul") {
+          return (
+            <ul key={i} className="list-disc pl-5 space-y-1 my-3">
+              {block.items.map((item, j) => (
+                <li key={j}>{item}</li>
+              ))}
+            </ul>
+          );
+        }
+        return null;
+      })}
     </div>
   );
 }
@@ -799,6 +848,8 @@ export default function DashboardPage() {
   const [showLifeRolesInfo, setShowLifeRolesInfo] = useState(false);
   const [showSharedGrowthInfo, setShowSharedGrowthInfo] = useState(false);
   const [showDashboardInfo, setShowDashboardInfo] = useState(false);
+  const [dashboardInfoDontShowAgain, setDashboardInfoDontShowAgain] = useState(false);
+  const [openCompassFrameworkTrigger, setOpenCompassFrameworkTrigger] = useState(0);
 
   /** Debounce timeouts for principle content: only persist after user stops typing so out-of-order upserts don't truncate content. */
   const principleContentSaveTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -903,6 +954,25 @@ export default function DashboardPage() {
       }
     })();
   }, [router, loadKey]);
+
+  const DASHBOARD_INFO_STORAGE_KEY = "compass-dashboard-info";
+  const DASHBOARD_INFO_MAX_AUTO_OPENS = 4;
+
+  useEffect(() => {
+    if (loading || typeof window === "undefined") return;
+    const raw = localStorage.getItem(DASHBOARD_INFO_STORAGE_KEY);
+    const data = raw ? JSON.parse(raw) : { dismissed: false, autoOpenCount: 0 };
+    if (data.dismissed || (data.autoOpenCount ?? 0) >= DASHBOARD_INFO_MAX_AUTO_OPENS) return;
+    const t = setTimeout(() => {
+      setDashboardInfoDontShowAgain(false);
+      setShowDashboardInfo(true);
+      localStorage.setItem(
+        DASHBOARD_INFO_STORAGE_KEY,
+        JSON.stringify({ ...data, autoOpenCount: (data.autoOpenCount ?? 0) + 1 })
+      );
+    }, 400);
+    return () => clearTimeout(t);
+  }, [loading]);
 
   const setItemPrincipleContent = (moduleId: string, itemName: string, principle: string, content: string) => {
     const key = `${moduleId}|${itemName}|${principle}`;
@@ -1276,7 +1346,7 @@ export default function DashboardPage() {
         <h1 className="font-semibold text-white/95 tracking-wide m-0" style={{ fontSize: "clamp(28px, 4.5vw, 36px)" }}>My Compass Dashboard</h1>
         <button
           type="button"
-          onClick={() => setShowDashboardInfo(true)}
+          onClick={() => { setDashboardInfoDontShowAgain(false); setShowDashboardInfo(true); }}
           className="shrink-0 w-[15px] h-[15px] rounded-full border border-white/40 bg-white text-black flex items-center justify-center text-[10px] font-semibold leading-none hover:bg-white/90"
           aria-label="More information"
         >
@@ -1301,6 +1371,8 @@ export default function DashboardPage() {
             onPrincipleContentChange={setItemPrincipleContent}
             openPrincipleId={openPrincipleId}
             onPrincipleLightboxClose={() => setOpenPrincipleId(null)}
+            openCompassFrameworkTrigger={openCompassFrameworkTrigger}
+            onOpenLifeRolesInfo={() => setShowLifeRolesInfo(true)}
           />
         </div>
       </div>
@@ -1708,206 +1780,72 @@ export default function DashboardPage() {
       </div>
 
       {showDashboardInfo && (
-        <Lightbox title="My Compass Dashboard" onClose={() => setShowDashboardInfo(false)} maxWidth={720}>
-          <div className="space-y-5 text-[17px] text-white/90 leading-[1.6]">
-            <p className="m-0">
-              The Compass App is a companion to Wayfinder, a book about navigating life&apos;s turning points—moments of change, growth, challenge, and possibility.
-            </p>
-            <p className="m-0">
-              At the heart of both is a framework called the Compass.
-            </p>
-            <p className="m-0">
-              The Compass is about direction. It helps you understand the roles you carry, the situations you face, and the progress you want to make—revealing where purpose may be forming and where meaningful paths forward may exist. Over time, returning to it can help you notice where alignment exists, where friction is forming, and where thoughtful attention could move the most meaningful parts of your life forward.
-            </p>
-            <p className="m-0">
-              The Compass does not provide answers.
-            </p>
-            <p className="m-0">
-              Instead, it offers a structure for interpreting what is happening around you and deciding how you want to respond.
-            </p>
-            <p className="m-0">
-              To begin, click the &quot;i&quot; icon next to Compass Framework.
-            </p>
-            <p className="m-0">
-              If you haven&apos;t read the book, start with the Overview section to understand how the framework works. The rest of the app builds on this structure.
-            </p>
-            <p className="m-0">
-              Whether you&apos;ve read the book or not, the In Practice section explains how the app is organized—including the interactive Compass graphic and the five modules where the framework can be explored and applied.
-            </p>
+        <Lightbox
+          title={DASHBOARD_INFO.title}
+          onClose={() => {
+            if (dashboardInfoDontShowAgain && typeof window !== "undefined") {
+              const raw = localStorage.getItem(DASHBOARD_INFO_STORAGE_KEY);
+              const data = raw ? JSON.parse(raw) : { dismissed: false, autoOpenCount: 0 };
+              localStorage.setItem(DASHBOARD_INFO_STORAGE_KEY, JSON.stringify({ ...data, dismissed: true }));
+            }
+            setShowDashboardInfo(false);
+          }}
+          maxWidth={720}
+        >
+          {renderInfoBlocks(DASHBOARD_INFO.blocks)}
+          <p className="m-0 mt-6 text-[17px] text-white/90">
+            <button
+              type="button"
+              onClick={() => {
+                setShowDashboardInfo(false);
+                setOpenCompassFrameworkTrigger((t) => t + 1);
+              }}
+              className="border-none bg-transparent p-0 text-inherit font-medium text-white/95 hover:text-white underline underline-offset-2 cursor-pointer"
+            >
+              Explore the Compass Framework Info Icon Now →
+            </button>
+          </p>
+          <div className="mt-6 pt-4 border-t border-white/12 flex items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-white/70 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={dashboardInfoDontShowAgain}
+                onChange={(e) => setDashboardInfoDontShowAgain(e.target.checked)}
+                className="rounded border-white/30"
+              />
+              Don&apos;t show this again automatically
+            </label>
           </div>
         </Lightbox>
       )}
 
       {showLifeRolesInfo && (
-        <Lightbox title="Life Roles" onClose={() => setShowLifeRolesInfo(false)} maxWidth={720}>
-          <div className="space-y-5 text-[17px] text-white/90 leading-[1.6]">
-            <p className="m-0">
-              Life Roles are the front lines of your life.
-            </p>
-            <p className="m-0">
-              They are not abstract titles. They are the identities you carry week after week — the places where responsibility lives and where your decisions shape real outcomes.
-            </p>
-            <p className="m-0">
-              These roles may include parent, spouse, caregiver, team leader, business owner, friend, volunteer, investor, or any identity that consistently carries weight in your life.
-            </p>
-            <p className="m-0">
-              Choose roles that genuinely require your time, energy, and attention. Aim for four to five to start. Too many, and the signal gets lost. Too few, and you may overlook meaningful areas of responsibility.
-            </p>
-            <p className="m-0">
-              Life Roles are not the same as Compass Roles.
-            </p>
-            <p className="m-0">
-              Your Life Roles are the vessels of your life.
-            </p>
-            <p className="m-0">
-              The Compass Roles (Achiever, Leader, Partner, Follower) are the lenses you use to navigate within those vessels.
-            </p>
-            <p className="m-0">
-              Once your Life Roles are defined, the Compass helps you evaluate how you&apos;re showing up inside each one — and where alignment, attention, or adjustment may be needed.
-            </p>
-            <p className="m-0">
-              This is your structural anchor.
-            </p>
-          </div>
+        <Lightbox title={LIFE_ROLES_INFO.title} onClose={() => setShowLifeRolesInfo(false)} maxWidth={720}>
+          {renderInfoBlocks(LIFE_ROLES_INFO.blocks)}
         </Lightbox>
       )}
 
       {showSharedGrowthInfo && (
-        <Lightbox title="Shared Growth" onClose={() => setShowSharedGrowthInfo(false)} maxWidth={720}>
-          <div className="space-y-5 text-[17px] text-white/90 leading-[1.6]">
-            <p className="m-0">
-              Shared Growth represents the people whose direction is meaningfully connected to yours.
-            </p>
-            <p className="m-0">
-              This is not a contact list. It is not a social graph.
-            </p>
-            <p className="m-0">
-              Only add individuals or groups whose growth, decisions, and trajectory are intertwined with your own — people where responsibility flows both ways.
-            </p>
-            <p className="m-0">
-              A relationship belongs here when:
-            </p>
-            <ul className="list-disc pl-5 space-y-1 my-3">
-              <li>It has enduring relevance</li>
-              <li>Your choices affect one another</li>
-              <li>You intend to invest in the relationship over time</li>
-            </ul>
-            <p className="m-0">
-              If the connection is temporary, purely transactional, or requires no ongoing coordination, it does not belong here.
-            </p>
-            <p className="m-0">
-              Shared Growth allows you to apply the Compass relationally — to reflect not only on how you are operating, but how you are aligning, supporting, or building alongside others.
-            </p>
-            <p className="m-0">
-              Start with a small number of meaningful connections. What matters is not quantity, but weight.
-            </p>
-          </div>
+        <Lightbox title={SHARED_GROWTH_INFO.title} onClose={() => setShowSharedGrowthInfo(false)} maxWidth={720}>
+          {renderInfoBlocks(SHARED_GROWTH_INFO.blocks)}
         </Lightbox>
       )}
 
       {showSituationsInfo && (
-        <Lightbox title="Situations" onClose={() => setShowSituationsInfo(false)} maxWidth={720}>
-          <div className="space-y-5 text-[17px] text-white/90 leading-[1.6]">
-            <p className="m-0">
-              Every meaningful pursuit begins as a Situation.
-            </p>
-            <p className="m-0">
-              A Situation is not just a problem to fix. It is layered with obstacles, opportunities, decisions, or ambition that deserves clarity.
-            </p>
-            <p className="m-0">
-              Even if what we&apos;re pursuing feels large—a long-term goal, a major want, or something transformational—the Compass recommends starting here.
-            </p>
-            <h3 className="text-white font-semibold mt-6 mb-2">Why start here?</h3>
-            <p className="m-0">
-              Because we often misread what we want.
-            </p>
-            <p className="m-0">
-              Before labeling something a meaningful want or transformation, the Compass guides you through Level 1 situationally:
-            </p>
-            <ul className="list-disc pl-5 space-y-1 my-3">
-              <li>What is the real opportunity or obstacle? What&apos;s the truth?</li>
-              <li>What mindset is shaping how you see it and would a different approach add more value?</li>
-              <li>What would an ideal outcome actually look like?</li>
-            </ul>
-            <p className="m-0">
-              Going through this process acts as a filter.
-            </p>
-            <h3 className="text-white font-semibold mt-6 mb-2">What happens next?</h3>
-            <p className="m-0">
-              Some Situations resolve quickly—perhaps through a single conversation or by working through higher principles in the pyramid.
-            </p>
-            <p className="m-0">
-              But other situations reveal a deeper direction we may want to build. In the Compass framework, these may be promoted to a Want, where multiple related Situations can be organized and pursued over time.
-            </p>
-            <p className="m-0">
-              Occasionally, a Situation uncovers something more structural—an identity-level shift that reshapes multiple areas of life. These may be promoted to a Transformation, where multiple Wants can live beneath a larger arc of what we&apos;re becoming.
-            </p>
-            <p className="m-0">
-              But every meaningful shift starts here.
-            </p>
-            <p className="m-0 font-medium text-white mt-4">
-              Clarity first. Structure second. Progress after that.
-            </p>
-          </div>
+        <Lightbox title={SITUATIONS_INFO.title} onClose={() => setShowSituationsInfo(false)} maxWidth={720}>
+          {renderInfoBlocks(SITUATIONS_INFO.blocks)}
         </Lightbox>
       )}
 
       {showWantsInfo && (
-        <Lightbox title="Wants" onClose={() => setShowWantsInfo(false)} maxWidth={720}>
-          <div className="space-y-5 text-[17px] text-white/90 leading-[1.6]">
-            <p className="m-0">
-              A Want is something you intend to pursue over time.
-            </p>
-            <p className="m-0">
-              While a Situation captures a specific moment, tension, or decision, a Want represents a broader direction you are choosing to build.
-            </p>
-            <p className="m-0">
-              Every entry begins as a Situation. After you&apos;ve worked through Level 1 of the Compass—clarifying the opportunity or obstacle, examining your mindset, and envisioning an ideal outcome—the system gives you the option to promote it.
-            </p>
-            <p className="m-0">
-              If what you&apos;ve uncovered requires sustained effort rather than a single move, it may belong here.
-            </p>
-            <p className="m-0">
-              A Want provides structure for ongoing progress. It allows you to organize multiple related Situations beneath a single pursuit, so your effort remains coordinated rather than scattered.
-            </p>
-            <p className="m-0">
-              If a Situation feels less like something to resolve and more like something to build, it is ready to become a Want.
-            </p>
-          </div>
+        <Lightbox title={WANTS_INFO.title} onClose={() => setShowWantsInfo(false)} maxWidth={720}>
+          {renderInfoBlocks(WANTS_INFO.blocks)}
         </Lightbox>
       )}
 
       {showTransformationsInfo && (
-        <Lightbox title="Transformations" onClose={() => setShowTransformationsInfo(false)} maxWidth={720}>
-          <div className="space-y-5 text-[17px] text-white/90 leading-[1.6]">
-            <p className="m-0">
-              A Transformation represents a structural shift in who you are becoming.
-            </p>
-            <p className="m-0">
-              Unlike a Want—which organizes effort around a chosen direction—a Transformation reshapes multiple areas of your life. It reflects a deeper change in identity, posture, or long-term trajectory.
-            </p>
-            <p className="m-0">
-              Every entry begins as a Situation. After working through Level 1 of the Compass—clarifying the true opportunity or obstacle, examining mindset, and envisioning an ideal outcome—you may discover that what you&apos;re facing is not just something to build, but something that changes you.
-            </p>
-            <p className="m-0">
-              That is when promotion becomes available.
-            </p>
-            <p className="m-0">
-              A Transformation is appropriate when:
-            </p>
-            <ul className="list-disc pl-5 space-y-1 my-3">
-              <li>The change affects multiple life roles</li>
-              <li>It requires sustained effort across time</li>
-              <li>It reorganizes priorities, systems, or relationships</li>
-              <li>It reflects a meaningful shift in how you operate</li>
-            </ul>
-            <p className="m-0">
-              Structurally, a Transformation can contain multiple Wants. Each Want may contain multiple Situations. This allows complex, long-term change to be organized without losing clarity at the ground level.
-            </p>
-            <p className="m-0">
-              But even the most significant shifts begin as Situations.
-            </p>
-          </div>
+        <Lightbox title={TRANSFORMATIONS_INFO.title} onClose={() => setShowTransformationsInfo(false)} maxWidth={720}>
+          {renderInfoBlocks(TRANSFORMATIONS_INFO.blocks)}
         </Lightbox>
       )}
 
