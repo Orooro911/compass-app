@@ -798,6 +798,7 @@ export default function DashboardPage() {
   const [showTransformationsInfo, setShowTransformationsInfo] = useState(false);
   const [showLifeRolesInfo, setShowLifeRolesInfo] = useState(false);
   const [showSharedGrowthInfo, setShowSharedGrowthInfo] = useState(false);
+  const [showDashboardInfo, setShowDashboardInfo] = useState(false);
 
   /** Debounce timeouts for principle content: only persist after user stops typing so out-of-order upserts don't truncate content. */
   const principleContentSaveTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -1271,8 +1272,18 @@ export default function DashboardPage() {
         className="flex flex-1 flex-col lg:flex-row lg:justify-center lg:items-start"
         style={{ padding: "min(2vh, 24px)", paddingTop: "min(12vh, 88px)" }}
       >
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-4">
-        <h1 className="font-semibold text-white/95 tracking-wide m-0" style={{ fontSize: "clamp(28px, 4.5vw, 36px)" }}>My Dashboard</h1>
+      <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-2">
+        <h1 className="font-semibold text-white/95 tracking-wide m-0" style={{ fontSize: "clamp(28px, 4.5vw, 36px)" }}>My Compass Dashboard</h1>
+        <button
+          type="button"
+          onClick={() => setShowDashboardInfo(true)}
+          className="shrink-0 w-[15px] h-[15px] rounded-full border border-white/40 bg-white text-black flex items-center justify-center text-[10px] font-semibold leading-none hover:bg-white/90"
+          aria-label="More information"
+        >
+          i
+        </button>
+      </div>
+      <div className="absolute top-6 right-6">
         <button
           type="button"
           onClick={handleSignOut}
@@ -1695,6 +1706,37 @@ export default function DashboardPage() {
           </RightPanel>
         )}
       </div>
+
+      {showDashboardInfo && (
+        <Lightbox title="My Compass Dashboard" onClose={() => setShowDashboardInfo(false)} maxWidth={720}>
+          <div className="space-y-5 text-[17px] text-white/90 leading-[1.6]">
+            <p className="m-0">
+              The Compass App is a companion to Wayfinder, a book about navigating life&apos;s turning points—moments of change, growth, challenge, and possibility.
+            </p>
+            <p className="m-0">
+              At the heart of both is a framework called the Compass.
+            </p>
+            <p className="m-0">
+              The Compass is about direction. It helps you understand the roles you carry, the situations you face, and the progress you want to make—revealing where purpose may be forming and where meaningful paths forward may exist. Over time, returning to it can help you notice where alignment exists, where friction is forming, and where thoughtful attention could move the most meaningful parts of your life forward.
+            </p>
+            <p className="m-0">
+              The Compass does not provide answers.
+            </p>
+            <p className="m-0">
+              Instead, it offers a structure for interpreting what is happening around you and deciding how you want to respond.
+            </p>
+            <p className="m-0">
+              To begin, click the &quot;i&quot; icon next to Compass Framework.
+            </p>
+            <p className="m-0">
+              If you haven&apos;t read the book, start with the Overview section to understand how the framework works. The rest of the app builds on this structure.
+            </p>
+            <p className="m-0">
+              Whether you&apos;ve read the book or not, the In Practice section explains how the app is organized—including the interactive Compass graphic and the five modules where the framework can be explored and applied.
+            </p>
+          </div>
+        </Lightbox>
+      )}
 
       {showLifeRolesInfo && (
         <Lightbox title="Life Roles" onClose={() => setShowLifeRolesInfo(false)} maxWidth={720}>

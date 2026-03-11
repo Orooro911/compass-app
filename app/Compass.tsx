@@ -796,12 +796,12 @@ export default function Compass({
             letterSpacing: "0.02em",
           }}
         >
-          The Compass
+          Compass Framework
         </h1>
         <button
           type="button"
           onClick={openCompassTitleLightbox}
-          aria-label="More information about The Compass"
+          aria-label="More information about Compass Framework"
           style={{
             width: 14,
             height: 14,
@@ -1133,7 +1133,7 @@ export default function Compass({
 
     {lightboxCompassTitle && (
       <LightboxWithOverviewAndPractice
-        title="The Compass"
+        title="Compass Framework"
         onClose={() => setLightboxCompassTitle(false)}
         overviewContent={COMPASS_TITLE_OVERVIEW}
         inPracticeSubTabs={COMPASS_TITLE_IN_PRACTICE_SUBTABS}
