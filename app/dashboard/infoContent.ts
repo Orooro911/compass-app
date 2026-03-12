@@ -4,11 +4,14 @@
  * type: "p" | "h3" | "ul" or change structure—only edit the text strings.
  */
 
+export type UlListItem = string | { bold: string; rest: string };
+
 export type InfoBlock =
-  | { type: "p"; text: string; className?: string }
+  | { type: "p"; text: string; className?: string; indent?: boolean }
   | { type: "pStrong"; text: string }
   | { type: "h3"; text: string }
-  | { type: "ul"; items: string[] };
+  | { type: "ul"; items: UlListItem[]; indent?: boolean }
+  | { type: "ol"; items: string[]; start?: number };
 
 export type InfoSection = { title: string; blocks: InfoBlock[] };
 
@@ -17,7 +20,7 @@ export const DASHBOARD_INFO: InfoSection = {
   blocks: [
     { type: "p", text: "The Compass App is a companion to Wayfinder, a book about navigating life's turning points—moments of change, growth, challenge, and possibility." },
     { type: "p", text: "At the heart of both is a framework called the Compass." },
-    { type: "p", text: "The Compass is about direction. It helps you understand the roles you carry, the situations you face, and the progress you want to make—revealing where purpose may be forming and where meaningful paths forward may exist. Over time, returning to the Compass can help you notice where alignment exists, where friction is forming, and where thoughtful attention could move the most meaningful parts of your life forward." },
+    { type: "p", text: "The Compass is about direction. It helps you navigate the roles you carry, the situations you face, and the progress you want to make—revealing where purpose may be forming and where meaningful paths forward may exist. Over time, returning to the Compass can help you notice where alignment exists, where friction is forming, and where thoughtful attention could move the most meaningful parts of your life forward." },
     { type: "p", text: "The Compass does not provide answers." },
     { type: "p", text: "Instead, it offers a structure for interpreting what is happening around you and helps you decide how to respond." },
     { type: "p", text: 'To begin, click the "i" icon next to Compass Framework title in the top left corner of the Compass graphic.' },

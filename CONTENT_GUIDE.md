@@ -62,12 +62,12 @@ Lightbox content that has **multiple tabs** (e.g. Overview / In Practice) or **s
 
 | File | What it controls |
 |------|------------------|
-| **`app/content/compassFrameworkContent.ts`** | The **Compass Framework** lightbox (the “i” next to “Compass Framework” on the graphic). Two main tabs: **Overview** and **In Practice**. In Practice has sub-tabs: **Compass Graphic**, **Compass Module**. |
+| **`app/content/compassFrameworkContent.ts`** | The **Compass Framework** lightbox (the “i” next to “Compass Framework” on the graphic). Two main tabs: **Overview** and **In Practice**. In Practice has sub-tabs: **Compass Graphic**, **Compass Modules**. |
 
 **Structure in the file:**  
 - `COMPASS_FRAMEWORK.title` — Lightbox title.  
 - `COMPASS_FRAMEWORK.overview` — Array of blocks (paragraphs, lists, headings) for the **Overview** tab.  
-- `COMPASS_FRAMEWORK.inPracticeSubTabs` — Array of `{ id, label, blocks }`; each item is one sub-tab (e.g. “Compass Graphic”, “Compass Module”) with its own list of blocks.
+- `COMPASS_FRAMEWORK.inPracticeSubTabs` — Array of `{ id, label, blocks }`; each item is one sub-tab (e.g. “Compass Graphic”, “Compass Modules”) with its own list of blocks.
 
 **How to edit:**  
 - Open `app/content/compassFrameworkContent.ts`.  

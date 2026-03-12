@@ -186,8 +186,9 @@ function renderInfoBlocks(blocks: InfoBlock[]) {
     <div className="space-y-5 text-[17px] text-white/90 leading-[1.6]">
       {blocks.map((block, i) => {
         if (block.type === "p") {
+          const cn = [block.className ?? "m-0", block.indent ? "ml-8" : ""].filter(Boolean).join(" ");
           return (
-            <p key={i} className={block.className ?? "m-0"}>
+            <p key={i} className={cn}>
               {block.text}
             </p>
           );
@@ -207,12 +208,22 @@ function renderInfoBlocks(blocks: InfoBlock[]) {
           );
         }
         if (block.type === "ul") {
+          const cn = ["list-disc pl-8 space-y-px my-1.5", block.indent ? "ml-8" : ""].filter(Boolean).join(" ");
           return (
-            <ul key={i} className="list-disc pl-5 space-y-1 my-3">
+            <ul key={i} className={cn}>
+              {block.items.map((item, j) => (
+                <li key={j}>{typeof item === "string" ? item : <><strong>{item.bold}</strong>{item.rest}</>}</li>
+              ))}
+            </ul>
+          );
+        }
+        if (block.type === "ol") {
+          return (
+            <ol key={i} className="list-decimal pl-9 space-y-px my-1.5" start={block.start}>
               {block.items.map((item, j) => (
                 <li key={j}>{item}</li>
               ))}
-            </ul>
+            </ol>
           );
         }
         return null;

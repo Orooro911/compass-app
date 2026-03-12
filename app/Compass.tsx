@@ -3,7 +3,18 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { ACHIEVER_ROLE_TITLE, ACHIEVER_OVERVIEW, ACHIEVER_IN_PRACTICE } from "./content/achieverRoleContent";
 import { COMPASS_FRAMEWORK } from "./content/compassFrameworkContent";
-import { getPrincipleContent } from "./content/principleAndLevelContent";
+import {
+  getLevelInPracticeBlocks,
+  getLevelOverviewBlocks,
+  getLevelPerspective,
+  getPrincipleContent,
+  LEVEL_NAMES,
+  levelToFirstPrinciple,
+  PRINCIPLE_DISPLAY_NAMES,
+  PRINCIPLE_IDS,
+  principleToLevelIndex,
+  ROLE_NAMES,
+} from "./content/principleAndLevelContent";
 import { renderBlocksToInline } from "./content/renderBlocks";
 import type { InfoBlock } from "./dashboard/infoContent";
 
@@ -102,200 +113,7 @@ const ROLE_LIGHTBOX: Record<Exclude<Role, "Achiever">, { title: string; body: Re
   },
 };
 
-// Content for each level icon (5 levels × 4 roles = 20). Key: "Role-LevelIndex" (LevelIndex 0–4).
-const LEVEL_LIGHTBOX: Record<string, { title: string; body: ReactNode }> = {
-  "Achiever-0": {
-    title: "Achiever Level 1 — Foundation",
-    body: (
-      <>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}><strong>Principles 1–3</strong></p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>P1 – Evaluate opportunities and obstacles</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>P2 – Understand mindset</p>
-        <p style={{ margin: "0 0 1rem", lineHeight: 1.5 }}>P3 – Envision the ideal future</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>In the Achiever Role, the responsibility begins with you—clarify your interpretation of the situation and the future you intend to pursue.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>This level requires deliberate stabilization.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>If you have not clearly evaluated your situation, examined how your mindset is shaping it, and defined the future you actually want, your path forward will lack precision.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You may stay busy.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You may even make progress.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>But you will not have full agency over direction or outcome.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Clarity here is not permanent. It reflects your most accurate interpretation based on the information available right now. It requires honest reflection and conscious choice.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Whether you are pursuing something ambitious, improving what already exists, resolving a problem, pursuing an opportunity, or correcting drift, this work determines whether your progress is intentional or reactive.</p>
-        <p style={{ margin: 0, lineHeight: 1.5 }}>Without stability here, control over the path ahead weakens or collapses.</p>
-      </>
-    ),
-  },
-  // ——— Achiever Level 2 content (P4–P5) ———
-  "Achiever-1": {
-    title: "Achiever — Level 2 Alignment",
-    body: (
-      <>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}><strong>Principles 4–5</strong></p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>P4 – Set measurable objectives</p>
-        <p style={{ margin: "0 0 1rem", lineHeight: 1.5 }}>P5 – Prioritize what matters</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>In the Achiever Role, alignment begins with defining how progress will be measured and where your energy will be focused.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>This level requires deliberate alignment.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Once the situation is clearly understood and a future has been defined in Level 1, that vision must be translated into measurable objectives. Progress must have form. It must be observable. It must have markers that indicate whether movement is real.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>But measurement alone is not enough.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Energy must be concentrated around what matters most. Competing priorities must be narrowed. Effort must be directed where it has the greatest impact.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>If objectives are undefined, progress becomes subjective.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>If priorities are scattered, momentum weakens.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You may feel busy.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You may feel committed.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>But without clear measures and focused priorities, energy diffuses and results become inconsistent.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Alignment here is not permanent. It depends on the stability of the foundation beneath it. If new information reshapes the situation or alters the vision, objectives and priorities must be recalibrated.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Whether you are pursuing growth, improving performance, resolving friction, or correcting drift, this work determines whether effort compounds—or fragments.</p>
-        <p style={{ margin: 0, lineHeight: 1.5 }}>Without stability in both Level 1 and Level 2, personal agency weakens and efficiency declines.</p>
-      </>
-    ),
-  },
-  "Achiever-2": { title: "Achiever Level 3", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for Achiever Level 3 here.</p> },
-  "Achiever-3": { title: "Achiever Level 4", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for Achiever Level 4 here.</p> },
-  "Achiever-4": { title: "Achiever Level 5", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for Achiever Level 5 here.</p> },
-  "Leader-0": {
-    title: "Leader Level 1 — Foundation",
-    body: (
-      <>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}><strong>Principles 1–3</strong></p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>P1 – Evaluate opportunities and obstacles</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>P2 – Understand mindset</p>
-        <p style={{ margin: "0 0 1rem", lineHeight: 1.5 }}>P3 – Envision the ideal future</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>In the Leader Role, the responsibility begins with you—clarify the situation and define a direction others can understand and align to.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>This level requires deliberate stabilization.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>If you have not clearly evaluated the terrain, examined how your and the mindset of others is shaping it, and defined a future that can be communicated and pursued together, alignment will be fragile.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You may move quickly.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You may issue direction.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>You may even see short-term progress.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>But without shared clarity, momentum will fracture and trust will strain.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Clarity here is not permanent. It reflects your most accurate interpretation based on the information available right now. It requires disciplined reflection and intentional communication.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Whether you are setting vision, correcting drift, pursuing opportunity, resolving tension, or strengthening what already exists, this work determines whether others can move with confidence—or merely react.</p>
-        <p style={{ margin: 0, lineHeight: 1.5 }}>Without stability here, coordinated progress weakens or collapses.</p>
-      </>
-    ),
-  },
-  "Leader-1": {
-    title: "Leader — Level 2 Alignment",
-    body: (
-      <>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}><strong>Principles 4–5</strong></p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>P4 – Set measurable objectives</p>
-        <p style={{ margin: "0 0 1rem", lineHeight: 1.5 }}>P5 – Prioritize what matters</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>In the Leader Role, alignment begins with defining measurable objectives and clarifying which priorities others must rally around.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>This level requires deliberate alignment.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Once the situation is clearly understood and a future has been defined in Level 1, that vision must be translated into measurable objectives that others can see and align to. Progress must have form. It must be observable. It must have markers that indicate whether movement is real.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>But measurement alone is not enough.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Energy must be concentrated around what matters most. Competing priorities must be narrowed so collective effort stays focused.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>If objectives are undefined, direction becomes unclear.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>If priorities are scattered, alignment weakens.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You may move quickly.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You may issue direction.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>But without clear measures and disciplined priorities, coordinated effort fragments.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Alignment here is not permanent. It depends on the stability of the foundation beneath it. If new information reshapes the situation or alters the vision, objectives and priorities must be realigned together.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Whether you are setting vision, strengthening execution, resolving tension, or correcting drift, this work determines whether collective effort compounds—or disperses.</p>
-        <p style={{ margin: 0, lineHeight: 1.5 }}>Without stability in both Level 1 and Level 2, cohesion weakens and momentum slows.</p>
-      </>
-    ),
-  },
-  "Leader-2": { title: "Leader Level 3", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for Leader Level 3 here.</p> },
-  "Leader-3": { title: "Leader Level 4", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for Leader Level 4 here.</p> },
-  "Leader-4": { title: "Leader Level 5", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for Leader Level 5 here.</p> },
-  "Follower-0": {
-    title: "Follower Level 1 — Foundation",
-    body: (
-      <>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}><strong>Principles 1–3</strong></p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>P1 – Evaluate opportunities and obstacles</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>P2 – Understand mindset</p>
-        <p style={{ margin: "0 0 1rem", lineHeight: 1.5 }}>P3 – Envision the ideal future</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>In the Follower Role, the responsibility begins with you—understand the situation clearly and align yourself with the direction being set.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>This level requires deliberate stabilization.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>If you have not clearly evaluated the terrain, examined how your mindset is shaping your response to it, and understood the future being pursued, your contribution will lack alignment.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You may stay active.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You may complete tasks.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>You may even appear supportive.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>But without grounded clarity, your effort may drift or reinforce the wrong priorities.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Clarity here is not permanent. It reflects your most accurate interpretation based on the information available right now. It requires disciplined listening, honest reflection, and a willingness to adjust.</p>
-        <p style={{ margin: 0, lineHeight: 1.5 }}>Whether you are supporting a vision, navigating change, strengthening what already exists, or walking through uncertainty, this work determines whether your presence stabilizes progress—or unintentionally destabilizes it.</p>
-      </>
-    ),
-  },
-  "Follower-1": {
-    title: "Follower — Level 2 Alignment",
-    body: (
-      <>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}><strong>Principles 4–5</strong></p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>P4 – Set measurable objectives</p>
-        <p style={{ margin: "0 0 1rem", lineHeight: 1.5 }}>P5 – Prioritize what matters</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>In the Follower Role, alignment begins with understanding how progress is measured and focusing your contribution on what matters most.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>This level requires deliberate alignment.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Once the situation is clearly understood and a future has been defined in Level 1, that vision must be translated into measurable objectives you can support with precision. Progress must have form. It must be observable. It must have markers that indicate whether movement is real.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>But measurement alone is not enough.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Energy must be concentrated around what matters most. Competing priorities must be recognized so your effort reinforces what truly advances the direction being pursued.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>If objectives are misunderstood, effort drifts.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>If priorities are misread, support weakens.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You may stay active.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You may stay committed.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>But without clear measures and focused priorities, your contribution may not strengthen the broader movement.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Alignment here is not permanent. It depends on the stability of the foundation beneath it. If new information reshapes the situation or alters the vision, your focus must adjust accordingly.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Whether you are supporting growth, navigating change, resolving friction, or correcting drift, this work determines whether your effort compounds—or unintentionally fragments.</p>
-        <p style={{ margin: 0, lineHeight: 1.5 }}>Without stability in both Level 1 and Level 2, consistency declines and effectiveness weakens.</p>
-      </>
-    ),
-  },
-  "Follower-2": { title: "Follower Level 3", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for Follower Level 3 here.</p> },
-  "Follower-3": { title: "Follower Level 4", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for Follower Level 4 here.</p> },
-  "Follower-4": { title: "Follower Level 5", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for Follower Level 5 here.</p> },
-  "Partner-0": {
-    title: "Partner Level 1 — Foundation",
-    body: (
-      <>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}><strong>Principles 1–3</strong></p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>P1 – Evaluate opportunities and obstacles</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>P2 – Understand mindset</p>
-        <p style={{ margin: "0 0 1rem", lineHeight: 1.5 }}>P3 – Envision the ideal future</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>In the Partner Role, the responsibility begins with shared clarity—establish a mutual understanding of the situation and the future being pursued together.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>This level requires deliberate stabilization.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>If opportunities and obstacles have not been openly evaluated, if mindset and expectations have not been surfaced, and if the desired future has not been defined together, alignment will rest on assumption.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You may stay connected.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You may continue working side by side.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>You may even feel cooperative.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>But without shared clarity, tension builds quietly and progress loses cohesion.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Clarity here is not permanent. It reflects your best collective interpretation based on the information available right now. It requires honesty, listening, and a willingness to recalibrate together.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Whether you are navigating commitment, pursuing opportunity, resolving friction, or strengthening what already exists, this work determines whether momentum deepens—or slowly divides.</p>
-        <p style={{ margin: 0, lineHeight: 1.5 }}>Without stability here, trust strains and shared progress weakens.</p>
-      </>
-    ),
-  },
-  "Partner-1": {
-    title: "Partner — Level 2 Alignment",
-    body: (
-      <>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}><strong>Principles 4–5</strong></p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>P4 – Set measurable objectives</p>
-        <p style={{ margin: "0 0 1rem", lineHeight: 1.5 }}>P5 – Prioritize what matters</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>In the Partner Role, alignment begins with defining shared measures of progress and agreeing on what deserves collective focus.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>This level requires deliberate alignment.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Once the situation is clearly understood and a future has been defined in Level 1, that vision must be translated into measurable objectives both parties recognize. Progress must have form. It must be observable. It must have markers that indicate whether movement is real.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>But measurement alone is not enough.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Energy must be concentrated around what matters most. Competing priorities must be surfaced and narrowed so effort remains unified.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>If objectives are assumed rather than defined, tension grows.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>If priorities are misaligned, momentum strains.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You may stay connected.</p>
-        <p style={{ margin: "0 0 0.5rem", lineHeight: 1.5 }}>You may remain committed.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>But without shared measures and disciplined priorities, effort divides instead of compounds.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Alignment here is not permanent. It depends on the stability of the foundation beneath it. If new information reshapes the situation or alters the vision, objectives and priorities must be recalibrated together.</p>
-        <p style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>Whether you are strengthening a relationship, pursuing opportunity, resolving friction, or correcting drift, this work determines whether shared effort compounds—or fractures.</p>
-        <p style={{ margin: 0, lineHeight: 1.5 }}>Without stability in both Level 1 and Level 2, trust weakens and efficiency declines.</p>
-      </>
-    ),
-  },
-  "Partner-2": { title: "Partner Level 3", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for Partner Level 3 here.</p> },
-  "Partner-3": { title: "Partner Level 4", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for Partner Level 4 here.</p> },
-  "Partner-4": { title: "Partner Level 5", body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for Partner Level 5 here.</p> },
-};
-function getLevelLightbox(role: Role, levelIndex: number) {
-  const key = `${role}-${levelIndex}`;
-  return LEVEL_LIGHTBOX[key] ?? { title: `${role} Level ${levelIndex + 1}`, body: <p style={{ margin: 0, lineHeight: 1.5 }}>Add content for {role} Level {levelIndex + 1} here.</p> };
-}
+// Level content is in principleAndLevelContent.ts (LEVEL_PERSPECTIVE, LEVEL_OVERVIEW_BLOCKS, LEVEL_IN_PRACTICE_BLOCKS).
 
 function LightboxWithOverviewAndPractice({
   title,
@@ -323,6 +141,11 @@ function LightboxWithOverviewAndPractice({
   const hasSubTabs = inPracticeSubTabs && inPracticeSubTabs.length > 0;
   const activeSubTab = hasSubTabs && subTabId ? inPracticeSubTabs.find((t) => t.id === subTabId) : null;
   const inPracticeBody = hasSubTabs && activeSubTab ? activeSubTab.content : inPracticeContent;
+  const contentScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    contentScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
+  }, [tab, subTabId]);
 
   return (
     <Lightbox title={title} onClose={onClose} maxWidth={maxWidth} maxHeight={maxHeight}>
@@ -386,7 +209,10 @@ function LightboxWithOverviewAndPractice({
               ))}
           </div>
         )}
-        <div style={{ padding: "0.5rem 0", height: "60vh", overflowY: "auto", color: "rgba(255,255,255,0.9)" }}>
+        <div
+          ref={contentScrollRef}
+          style={{ padding: "0.5rem 0", height: "60vh", overflowY: "auto", color: "rgba(255,255,255,0.9)" }}
+        >
           {tab === "overview" && overviewContent}
           {tab === "in-practice" && inPracticeBody}
         </div>
@@ -396,25 +222,48 @@ function LightboxWithOverviewAndPractice({
   );
 }
 
+const navLinkStyle = (active: boolean): React.CSSProperties => ({
+  background: "none",
+  border: "none",
+  padding: 0,
+  color: active ? "#fff" : "rgba(255,255,255,0.7)",
+  fontWeight: active ? 700 : 400,
+  cursor: "pointer",
+  fontSize: 14,
+});
+
 function PrincipleLightboxWithTabs({
   title,
   onClose,
+  role,
+  principle,
+  overviewShort,
   overviewContent,
   inPracticeContent,
   hasApplyTab,
   userContent,
   onUserContentChange,
+  onNavigateToRole,
+  onNavigateToLevel,
+  onNavigateToPrinciple,
 }: {
   title: string;
   onClose: () => void;
+  role: Role;
+  principle: string;
+  overviewShort: string;
   overviewContent: ReactNode;
   inPracticeContent: ReactNode;
-  /** When true, show the Apply tab (editable content for Situation/Want/Transformation). */
   hasApplyTab: boolean;
   userContent: string;
   onUserContentChange: (value: string) => void;
+  onNavigateToRole: (r: Role) => void;
+  onNavigateToLevel: (levelIndex: number) => void;
+  onNavigateToPrinciple: (p: string) => void;
 }) {
   const [tab, setTab] = useState<"overview" | "in-practice" | "apply">(hasApplyTab ? "apply" : "overview");
+  const [overviewExpanded, setOverviewExpanded] = useState(false);
+  const [inPracticeExpanded, setInPracticeExpanded] = useState(false);
   const tabs = hasApplyTab
     ? [
         { id: "overview" as const, label: "Overview" },
@@ -425,51 +274,435 @@ function PrincipleLightboxWithTabs({
         { id: "overview" as const, label: "Overview" },
         { id: "in-practice" as const, label: "In Practice" },
       ];
+  const currentLevelIndex = principleToLevelIndex(principle);
 
   return (
-    <Lightbox title={title} onClose={onClose}>
+    <Lightbox title={title} onClose={onClose} maxWidth={720}>
       <div>
-        <div style={{ display: "flex", gap: 12, marginBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.12)", paddingBottom: 8 }}>
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              style={{
-                background: "none",
-                border: "none",
-                color: tab === t.id ? "#fff" : "rgba(255,255,255,0.6)",
-                cursor: "pointer",
-                fontSize: 14,
-                fontWeight: tab === t.id ? 600 : 400,
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
+        <p style={{ margin: "0 0 0.35rem", fontSize: 19, fontWeight: 700, color: "#fff" }}>
+          {role} Perspective:
+        </p>
+        <p style={{ margin: "0 0 1rem", fontSize: 18, lineHeight: 1.5, color: "rgba(255,255,255,0.98)", minHeight: "3em", fontWeight: 500 }}>
+          {overviewShort}
+        </p>
+        <p style={{ margin: "0 0 0.5rem", fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.75)" }}>
+          Navigation:
+        </p>
+        <div style={{ marginBottom: 16, fontSize: 14, lineHeight: 1.8, color: "rgba(255,255,255,0.9)" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.25rem 0" }}>
+            <span style={{ marginRight: 6 }}>Roles:</span>
+            {ROLE_NAMES.map((r, i) => (
+              <span key={r}>
+                {i > 0 && " | "}
+                <button type="button" style={navLinkStyle(role === r)} onClick={() => onNavigateToRole(r as Role)}>
+                  {role === r ? `[${r}]` : r}
+                </button>
+              </span>
+            ))}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.25rem 0" }}>
+            <span style={{ marginRight: 6 }}>Levels:</span>
+            {LEVEL_NAMES.map((lev, i) => (
+              <span key={lev}>
+                {i > 0 && " | "}
+                <button type="button" style={navLinkStyle(currentLevelIndex === i)} onClick={() => onNavigateToLevel(i)}>
+                  {currentLevelIndex === i ? `[${lev}]` : lev}
+                </button>
+              </span>
+            ))}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.25rem 0" }}>
+            <span style={{ marginRight: 6 }}>Principles:</span>
+            {PRINCIPLE_IDS.map((p, i) => (
+              <span key={p}>
+                {i > 0 && " | "}
+                <button type="button" style={navLinkStyle(principle === p)} onClick={() => onNavigateToPrinciple(p)}>
+                  {principle === p ? `[${p}]` : p}
+                </button>
+              </span>
+            ))}
+          </div>
         </div>
-        <div style={{ padding: "0.5rem 0", minHeight: 120, color: "rgba(255,255,255,0.9)" }}>
-          {tab === "overview" && overviewContent}
-          {tab === "in-practice" && inPracticeContent}
-          {tab === "apply" && (
-            <textarea
-              value={userContent}
-              onChange={(e) => onUserContentChange(e.target.value)}
-              placeholder="Add your notes, opportunities, obstacles, or action items here…"
-              style={{
-                width: "100%",
-                minHeight: 180,
-                padding: 12,
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.2)",
-                borderRadius: 8,
-                color: "#fff",
-                fontSize: 15,
-                lineHeight: 1.5,
-                resize: "vertical",
-              }}
-            />
-          )}
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.12)", paddingTop: 12, marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 20, marginBottom: 12, borderBottom: "2px solid rgba(255,255,255,0.15)", paddingBottom: 0 }}>
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  setTab(t.id);
+                  setOverviewExpanded(false);
+                  setInPracticeExpanded(false);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  borderBottom: tab === t.id ? "3px solid white" : "3px solid transparent",
+                  color: tab === t.id ? "#fff" : "rgba(255,255,255,0.65)",
+                  cursor: "pointer",
+                  fontSize: 17,
+                  fontWeight: tab === t.id ? 700 : 600,
+                  padding: "10px 0",
+                  marginBottom: -2,
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ padding: "0.5rem 0", minHeight: 120, color: "rgba(255,255,255,0.9)" }}>
+            {tab === "overview" && (
+              <>
+                <div
+                  style={{
+                    maxHeight: overviewExpanded ? "none" : "13.5rem",
+                    overflow: overviewExpanded ? "visible" : "hidden",
+                    transition: "max-height 0.25s ease-out",
+                  }}
+                >
+                  {overviewContent}
+                </div>
+                {!overviewExpanded && (
+                  <button
+                    type="button"
+                    onClick={() => setOverviewExpanded(true)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 10,
+                      padding: 4,
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.8)",
+                      fontSize: 14,
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ display: "block" }}>Show More</span>
+                    <span style={{ display: "block", fontSize: 22, lineHeight: 1.2, marginTop: 2 }}>↓</span>
+                  </button>
+                )}
+                {overviewExpanded && (
+                  <button
+                    type="button"
+                    onClick={() => setOverviewExpanded(false)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 10,
+                      padding: 4,
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.7)",
+                      fontSize: 14,
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ display: "block" }}>Show Less</span>
+                    <span style={{ display: "block", fontSize: 22, lineHeight: 1.2, marginTop: 2 }}>↑</span>
+                  </button>
+                )}
+              </>
+            )}
+            {tab === "in-practice" && (
+              <>
+                <div
+                  style={{
+                    maxHeight: inPracticeExpanded ? "none" : "13.5rem",
+                    overflow: inPracticeExpanded ? "visible" : "hidden",
+                    transition: "max-height 0.25s ease-out",
+                  }}
+                >
+                  {inPracticeContent}
+                </div>
+                {!inPracticeExpanded && (
+                  <button
+                    type="button"
+                    onClick={() => setInPracticeExpanded(true)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 10,
+                      padding: 4,
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.8)",
+                      fontSize: 14,
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ display: "block" }}>Show More</span>
+                    <span style={{ display: "block", fontSize: 22, lineHeight: 1.2, marginTop: 2 }}>↓</span>
+                  </button>
+                )}
+                {inPracticeExpanded && (
+                  <button
+                    type="button"
+                    onClick={() => setInPracticeExpanded(false)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 10,
+                      padding: 4,
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.7)",
+                      fontSize: 14,
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ display: "block" }}>Show Less</span>
+                    <span style={{ display: "block", fontSize: 22, lineHeight: 1.2, marginTop: 2 }}>↑</span>
+                  </button>
+                )}
+              </>
+            )}
+            {tab === "apply" && (
+              <textarea
+                value={userContent}
+                onChange={(e) => onUserContentChange(e.target.value)}
+                placeholder="Add your notes, opportunities, obstacles, or action items here…"
+                style={{
+                  width: "100%",
+                  minHeight: 180,
+                  padding: 12,
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: 8,
+                  color: "#fff",
+                  fontSize: 15,
+                  lineHeight: 1.5,
+                  resize: "vertical",
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    </Lightbox>
+  );
+}
+
+function LevelLightboxWithTabs({
+  title,
+  onClose,
+  role,
+  levelIndex,
+  perspectiveShort,
+  overviewContent,
+  inPracticeContent,
+  onNavigateToRole,
+  onNavigateToLevel,
+  onNavigateToPrinciple,
+}: {
+  title: string;
+  onClose: () => void;
+  role: Role;
+  levelIndex: number;
+  perspectiveShort: string;
+  overviewContent: ReactNode;
+  inPracticeContent: ReactNode;
+  onNavigateToRole: (r: Role) => void;
+  onNavigateToLevel: (idx: number) => void;
+  onNavigateToPrinciple: (p: string) => void;
+}) {
+  const [tab, setTab] = useState<"overview" | "in-practice">("overview");
+  const [overviewExpanded, setOverviewExpanded] = useState(false);
+  const [inPracticeExpanded, setInPracticeExpanded] = useState(false);
+  const highlightedPrinciple = levelToFirstPrinciple(levelIndex);
+  return (
+    <Lightbox title={title} onClose={onClose} maxWidth={720}>
+      <div>
+        <p style={{ margin: "0 0 0.35rem", fontSize: 19, fontWeight: 700, color: "#fff" }}>
+          {role} Perspective:
+        </p>
+        <p style={{ margin: "0 0 1rem", fontSize: 18, lineHeight: 1.5, color: "rgba(255,255,255,0.98)", minHeight: "3em", fontWeight: 500 }}>
+          {perspectiveShort}
+        </p>
+        <p style={{ margin: "0 0 0.5rem", fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.75)" }}>
+          Navigation:
+        </p>
+        <div style={{ marginBottom: 16, fontSize: 14, lineHeight: 1.8, color: "rgba(255,255,255,0.9)" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.25rem 0" }}>
+            <span style={{ marginRight: 6 }}>Roles:</span>
+            {ROLE_NAMES.map((r, i) => (
+              <span key={r}>
+                {i > 0 && " | "}
+                <button type="button" style={navLinkStyle(role === r)} onClick={() => onNavigateToRole(r as Role)}>
+                  {role === r ? `[${r}]` : r}
+                </button>
+              </span>
+            ))}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.25rem 0" }}>
+            <span style={{ marginRight: 6 }}>Levels:</span>
+            {LEVEL_NAMES.map((lev, i) => (
+              <span key={lev}>
+                {i > 0 && " | "}
+                <button type="button" style={navLinkStyle(levelIndex === i)} onClick={() => onNavigateToLevel(i)}>
+                  {levelIndex === i ? `[${lev}]` : lev}
+                </button>
+              </span>
+            ))}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.25rem 0" }}>
+            <span style={{ marginRight: 6 }}>Principles:</span>
+            {PRINCIPLE_IDS.map((p, i) => (
+              <span key={p}>
+                {i > 0 && " | "}
+                <button type="button" style={navLinkStyle(highlightedPrinciple === p)} onClick={() => onNavigateToPrinciple(p)}>
+                  {highlightedPrinciple === p ? `[${p}]` : p}
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.12)", paddingTop: 12, marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 20, marginBottom: 12, borderBottom: "2px solid rgba(255,255,255,0.15)", paddingBottom: 0 }}>
+            {[
+              { id: "overview" as const, label: "Overview" },
+              { id: "in-practice" as const, label: "In Practice" },
+            ].map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  setTab(t.id);
+                  setOverviewExpanded(false);
+                  setInPracticeExpanded(false);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  borderBottom: tab === t.id ? "3px solid white" : "3px solid transparent",
+                  color: tab === t.id ? "#fff" : "rgba(255,255,255,0.65)",
+                  cursor: "pointer",
+                  fontSize: 17,
+                  fontWeight: tab === t.id ? 700 : 600,
+                  padding: "10px 0",
+                  marginBottom: -2,
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ padding: "0.5rem 0", minHeight: 120, color: "rgba(255,255,255,0.9)" }}>
+            {tab === "overview" && (
+              <>
+                <div
+                  style={{
+                    maxHeight: overviewExpanded ? "none" : "13.5rem",
+                    overflow: overviewExpanded ? "visible" : "hidden",
+                    transition: "max-height 0.25s ease-out",
+                  }}
+                >
+                  {overviewContent}
+                </div>
+                {!overviewExpanded && (
+                  <button
+                    type="button"
+                    onClick={() => setOverviewExpanded(true)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 10,
+                      padding: 4,
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.8)",
+                      fontSize: 14,
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ display: "block" }}>Show More</span>
+                    <span style={{ display: "block", fontSize: 22, lineHeight: 1.2, marginTop: 2 }}>↓</span>
+                  </button>
+                )}
+                {overviewExpanded && (
+                  <button
+                    type="button"
+                    onClick={() => setOverviewExpanded(false)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 10,
+                      padding: 4,
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.7)",
+                      fontSize: 14,
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ display: "block" }}>Show Less</span>
+                    <span style={{ display: "block", fontSize: 22, lineHeight: 1.2, marginTop: 2 }}>↑</span>
+                  </button>
+                )}
+              </>
+            )}
+            {tab === "in-practice" && (
+              <>
+                <div
+                  style={{
+                    maxHeight: inPracticeExpanded ? "none" : "13.5rem",
+                    overflow: inPracticeExpanded ? "visible" : "hidden",
+                    transition: "max-height 0.25s ease-out",
+                  }}
+                >
+                  {inPracticeContent}
+                </div>
+                {!inPracticeExpanded && (
+                  <button
+                    type="button"
+                    onClick={() => setInPracticeExpanded(true)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 10,
+                      padding: 4,
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.8)",
+                      fontSize: 14,
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ display: "block" }}>Show More</span>
+                    <span style={{ display: "block", fontSize: 22, lineHeight: 1.2, marginTop: 2 }}>↓</span>
+                  </button>
+                )}
+                {inPracticeExpanded && (
+                  <button
+                    type="button"
+                    onClick={() => setInPracticeExpanded(false)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 10,
+                      padding: 4,
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.7)",
+                      fontSize: 14,
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ display: "block" }}>Show Less</span>
+                    <span style={{ display: "block", fontSize: 22, lineHeight: 1.2, marginTop: 2 }}>↑</span>
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </Lightbox>
@@ -493,7 +726,7 @@ type CompassProps = {
   onPrincipleLightboxClose?: () => void;
   /** When this value increments, the Compass Framework info lightbox opens (e.g. from dashboard CTA). */
   openCompassFrameworkTrigger?: number;
-  /** Called when user clicks the "Start Adding Life Roles" CTA in the Compass Module sub-tab (closes Compass lightbox and opens Life Roles info). */
+  /** Called when user clicks the "Start Adding Life Roles" CTA in the Compass Modules sub-tab (closes Compass lightbox and opens Life Roles info). */
   onOpenLifeRolesInfo?: () => void;
 };
 
@@ -1055,9 +1288,11 @@ export default function Compass({
     ))}
 
     {lightboxPrinciple && (() => {
-      const { title, overview, inPractice } = getPrincipleContent(lightboxPrinciple.role, lightboxPrinciple.principle);
+      const { role, principle } = lightboxPrinciple;
+      const { perspectiveDescription, inPractice, overviewBlocks, inPracticeBlocks } = getPrincipleContent(role, principle);
+      const title = PRINCIPLE_DISPLAY_NAMES[principle] ?? `${principle}`;
       const hasApplyTab = !!effectiveActive && !!(onPrincipleContentChange ?? onSituationPrincipleContentChange);
-      const userContent = lookupContent(lightboxPrinciple.principle);
+      const userContent = lookupContent(principle);
       const paragraphStyle = { margin: "0 0 0.5rem", lineHeight: 1.5 as const };
 
       const handleClose = () => {
@@ -1069,23 +1304,52 @@ export default function Compass({
         <PrincipleLightboxWithTabs
           title={title}
           onClose={handleClose}
-          overviewContent={<p style={paragraphStyle}>{overview}</p>}
-          inPracticeContent={<p style={paragraphStyle}>{inPractice}</p>}
+          role={role}
+          principle={principle}
+          overviewShort={perspectiveDescription}
+          overviewContent={renderBlocksToInline(overviewBlocks)}
+          inPracticeContent={inPracticeBlocks ? renderBlocksToInline(inPracticeBlocks) : <p style={paragraphStyle}>{inPractice}</p>}
           hasApplyTab={hasApplyTab}
           userContent={userContent}
-          onUserContentChange={(v) => effectiveActive && handleContentChange?.(effectiveActive.moduleId, effectiveActive.name, lightboxPrinciple.principle, v)}
+          onUserContentChange={(v) => effectiveActive && handleContentChange?.(effectiveActive.moduleId, effectiveActive.name, principle, v)}
+          onNavigateToRole={(r) => {
+            setLightboxPrinciple({ role: r, principle });
+            setRotation((current) => shortestPathAngle(current, ROLE_ANGLE[r]));
+          }}
+          onNavigateToLevel={(levelIndex) => {
+            setLightboxPrinciple(null);
+            setLightboxLevel({ role, levelIndex });
+          }}
+          onNavigateToPrinciple={(p) => setLightboxPrinciple({ role, principle: p })}
         />
       );
     })()}
 
     {lightboxLevel && (() => {
-      const { title, body } = getLevelLightbox(lightboxLevel.role, lightboxLevel.levelIndex);
+      const { role, levelIndex } = lightboxLevel;
+      const title = `Level ${levelIndex + 1} — ${LEVEL_NAMES[levelIndex]}`;
+      const perspectiveShort = getLevelPerspective(role, levelIndex);
+      const overviewBlocks = getLevelOverviewBlocks(levelIndex);
+      const inPracticeBlocks = getLevelInPracticeBlocks(levelIndex);
       return (
-        <Lightbox title={title} onClose={() => setLightboxLevel(null)}>
-          <div style={{ padding: "1rem 0", minHeight: 120, color: "rgba(255,255,255,0.9)" }}>
-            {body}
-          </div>
-        </Lightbox>
+        <LevelLightboxWithTabs
+          title={title}
+          onClose={() => setLightboxLevel(null)}
+          role={role}
+          levelIndex={levelIndex}
+          perspectiveShort={perspectiveShort}
+          overviewContent={renderBlocksToInline(overviewBlocks)}
+          inPracticeContent={renderBlocksToInline(inPracticeBlocks)}
+          onNavigateToRole={(r) => {
+            setLightboxLevel({ role: r, levelIndex });
+            setRotation((current) => shortestPathAngle(current, ROLE_ANGLE[r]));
+          }}
+          onNavigateToLevel={(idx) => setLightboxLevel({ role, levelIndex: idx })}
+          onNavigateToPrinciple={(p) => {
+            setLightboxLevel(null);
+            setLightboxPrinciple({ role, principle: p });
+          }}
+        />
       );
     })()}
     </>
