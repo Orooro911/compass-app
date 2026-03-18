@@ -11,21 +11,19 @@ export type InfoBlock =
   | { type: "pStrong"; text: string }
   | { type: "h3"; text: string }
   | { type: "ul"; items: UlListItem[]; indent?: boolean }
-  | { type: "ol"; items: string[]; start?: number };
+  | { type: "ol"; items: (string | { bold: string; rest: string })[]; start?: number };
 
 export type InfoSection = { title: string; blocks: InfoBlock[] };
 
 export const DASHBOARD_INFO: InfoSection = {
   title: "My Compass Dashboard",
   blocks: [
-    { type: "p", text: "The Compass App is a companion to Wayfinder, a book about navigating life's turning points—moments of change, growth, challenge, and possibility." },
-    { type: "p", text: "At the heart of both is a framework called the Compass." },
-    { type: "p", text: "The Compass is about direction. It helps you navigate the roles you carry, the situations you face, and the progress you want to make—revealing where purpose may be forming and where meaningful paths forward may exist. Over time, returning to the Compass can help you notice where alignment exists, where friction is forming, and where thoughtful attention could move the most meaningful parts of your life forward." },
-    { type: "p", text: "The Compass does not provide answers." },
-    { type: "p", text: "Instead, it offers a structure for interpreting what is happening around you and helps you decide how to respond." },
-    { type: "p", text: 'To begin, click the "i" icon next to Compass Framework title in the top left corner of the Compass graphic.' },
-    { type: "p", text: "If you haven't read the book, start with the Overview section to understand how the framework works. The rest of the app builds on this structure." },
-    { type: "p", text: "Whether you've read the book or not, the In Practice section explains how the app is organized—including the interactive Compass graphic and the five modules where the framework can be explored and applied." },
+    { type: "p", text: "The Compass is a framework for navigating life's most meaningful moments with clarity and direction." },
+    { type: "p", text: "It helps you interpret the roles you carry, the situations you're facing, and the progress you want to make — revealing where alignment exists, where friction is forming, and where focused attention could move things forward." },
+    { type: "p", text: "The Compass doesn't provide answers. It offers a structure for seeing what's actually happening and choosing how to respond." },
+    { type: "p", text: "Used occasionally, it sharpens perspective. Used consistently, it becomes a rhythm — a way to stay oriented across the parts of life that matter most." },
+    { type: "p", text: "Where to begin:" },
+    { type: "p", text: "Click the ⓘ icon next to Compass Framework in the top left of the graphic. If you're new to the Compass, start with the Overview to understand how the framework works. The In Practice section explains how the app is organized and where to apply it." },
   ],
 };
 

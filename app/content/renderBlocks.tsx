@@ -51,7 +51,7 @@ export function renderBlocksToInline(blocks: InfoBlock[]): React.ReactNode {
         <ol key={i} style={orderedListStyle} start={block.start}>
           {block.items.map((item, j) => (
             <li key={j} style={j < block.items.length - 1 ? listItemStyle : undefined}>
-              {item}
+              {typeof item === "string" ? item : <><strong>{item.bold}</strong>{item.rest}</>}
             </li>
           ))}
         </ol>

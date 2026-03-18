@@ -1,13 +1,17 @@
 "use client";
 
 import { useState, useEffect, useRef, type ReactNode } from "react";
-import { ACHIEVER_ROLE_TITLE, ACHIEVER_OVERVIEW, ACHIEVER_IN_PRACTICE } from "./content/achieverRoleContent";
+import { ACHIEVER_OVERVIEW, ACHIEVER_IN_PRACTICE } from "./content/achieverRoleContent";
+import { FOLLOWER_IN_PRACTICE, FOLLOWER_OVERVIEW } from "./content/followerRoleContent";
+import { LEADER_IN_PRACTICE, LEADER_OVERVIEW } from "./content/leaderRoleContent";
+import { PARTNER_IN_PRACTICE, PARTNER_OVERVIEW } from "./content/partnerRoleContent";
 import { COMPASS_FRAMEWORK } from "./content/compassFrameworkContent";
 import {
   getLevelInPracticeBlocks,
   getLevelOverviewBlocks,
   getLevelPerspective,
   getPrincipleContent,
+  PRINCIPLE_IN_ACTION_PROMPT_BLOCKS,
   LEVEL_NAMES,
   levelToFirstPrinciple,
   PRINCIPLE_DISPLAY_NAMES,
@@ -35,10 +39,17 @@ function shortestPathAngle(currentDeg: number, targetDeg: number): number {
   return currentDeg + delta;
 }
 
-// Content for role lightboxes (Achiever uses Overview/In Practice tabs from achieverRoleContent.ts)
-const ROLE_LIGHTBOX: Record<Exclude<Role, "Achiever">, { title: string; body: ReactNode }> = {
+// Title and short description for each role lightbox (same structure as principle/level lightboxes).
+const ROLE_TITLE_AND_SHORT: Record<Role, { title: string; shortDescription: string }> = {
+  Achiever: { title: "Responsibility of the Achiever", shortDescription: "The posture of personal clarity, ownership, and pursuit." },
+  Leader: { title: "Responsibility of the Leader", shortDescription: "The posture of vision, direction, and guidance for others." },
+  Partner: { title: "Responsibility of the Partner", shortDescription: "The posture of trust, collaboration, and shared progress." },
+  Follower: { title: "Responsibility of the Follower", shortDescription: "The posture of learning, support, and strengthening existing systems." },
+};
+
+// Body content for Leader, Partner, Follower (Achiever uses ACHIEVER_OVERVIEW / ACHIEVER_IN_PRACTICE).
+const ROLE_LIGHTBOX: Record<Exclude<Role, "Achiever">, { body: ReactNode }> = {
   Leader: {
-    title: "Responsibility of the Leader",
     body: (
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", alignItems: "start", fontSize: 17, lineHeight: 1.5, marginBottom: -4 }}>
         <div>
@@ -57,7 +68,6 @@ const ROLE_LIGHTBOX: Record<Exclude<Role, "Achiever">, { title: string; body: Re
     ),
   },
   Follower: {
-    title: "Responsibility of the Follower",
     body: (
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", alignItems: "start", fontSize: 17, lineHeight: 1.5, marginBottom: -4 }}>
         <div>
@@ -77,7 +87,6 @@ const ROLE_LIGHTBOX: Record<Exclude<Role, "Achiever">, { title: string; body: Re
     ),
   },
   Partner: {
-    title: "Responsibility of the Partner",
     body: (
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", alignItems: "start", fontSize: 17, lineHeight: 1.5 }}>
         <div>
@@ -246,6 +255,8 @@ function PrincipleLightboxWithTabs({
   onNavigateToRole,
   onNavigateToLevel,
   onNavigateToPrinciple,
+  onAddSituation,
+  dbLastSavedAtMs,
 }: {
   title: string;
   onClose: () => void;
@@ -260,21 +271,121 @@ function PrincipleLightboxWithTabs({
   onNavigateToRole: (r: Role) => void;
   onNavigateToLevel: (levelIndex: number) => void;
   onNavigateToPrinciple: (p: string) => void;
+  onAddSituation?: () => void;
+  dbLastSavedAtMs?: number | null;
 }) {
   const [tab, setTab] = useState<"overview" | "in-practice" | "apply">(hasApplyTab ? "apply" : "overview");
   const [overviewExpanded, setOverviewExpanded] = useState(false);
   const [inPracticeExpanded, setInPracticeExpanded] = useState(false);
-  const tabs = hasApplyTab
-    ? [
-        { id: "overview" as const, label: "Overview" },
-        { id: "in-practice" as const, label: "In Practice" },
-        { id: "apply" as const, label: "Apply" },
-      ]
-    : [
-        { id: "overview" as const, label: "Overview" },
-        { id: "in-practice" as const, label: "In Practice" },
-      ];
+  const [applyExpanded, setApplyExpanded] = useState(false);
+  // Always show "In Action" so role-only contexts (e.g. Life Roles / Shared Growth) still have a place to look.
+  // When `hasApplyTab` is false, it renders read-only guidance (no editing).
+  const tabs = [
+    { id: "overview" as const, label: "Overview" },
+    { id: "in-practice" as const, label: "In Practice" },
+    { id: "apply" as const, label: "In Action" },
+  ];
   const currentLevelIndex = principleToLevelIndex(principle);
+
+  // P1 In Action (editable) needs two fields; we store them together as JSON in `userContent`.
+  const [p1Obstacle, setP1Obstacle] = useState("");
+  const [p1Opportunity, setP1Opportunity] = useState("");
+  const [savedP1Obstacle, setSavedP1Obstacle] = useState("");
+  const [savedP1Opportunity, setSavedP1Opportunity] = useState("");
+  const [lastP1SavedAt, setLastP1SavedAt] = useState<number | null>(dbLastSavedAtMs ?? null);
+
+  const p1IsDirty = p1Obstacle !== savedP1Obstacle || p1Opportunity !== savedP1Opportunity;
+  const p1IsDirtyRef = useRef(false);
+  useEffect(() => {
+    p1IsDirtyRef.current = p1IsDirty;
+  }, [p1IsDirty]);
+
+  useEffect(() => {
+    if (!(hasApplyTab && principle === "P1")) return;
+
+    const raw = userContent ?? "";
+    const trimmed = raw.trim();
+
+    if (!trimmed) {
+      setSavedP1Obstacle("");
+      setSavedP1Opportunity("");
+      if (!p1IsDirtyRef.current) {
+        setP1Obstacle("");
+        setP1Opportunity("");
+      }
+      return;
+    }
+
+    const tryParse = (s: string) => {
+      try {
+        return JSON.parse(s);
+      } catch {
+        return undefined;
+      }
+    };
+
+    let obstacle = "";
+    let opportunity = "";
+
+    // Support: (1) the new `{ obstacle, opportunity }` JSON format
+    // and (2) older/odd double-encoded cases by being defensive.
+    let parsed: unknown = tryParse(trimmed);
+
+    if (typeof parsed === "string") {
+      const inner = parsed.trim();
+      if (inner.startsWith("{") && inner.endsWith("}")) {
+        parsed = tryParse(inner);
+      }
+    }
+
+    const parsedObj = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+    const hasKeys = !!parsedObj && (Object.prototype.hasOwnProperty.call(parsedObj, "obstacle") || Object.prototype.hasOwnProperty.call(parsedObj, "opportunity"));
+
+    if (parsedObj && hasKeys) {
+      obstacle = typeof parsedObj.obstacle === "string" ? parsedObj.obstacle : "";
+      opportunity = typeof parsedObj.opportunity === "string" ? parsedObj.opportunity : "";
+    } else {
+      // Back-compat: if older saves were a single textarea, treat it as the obstacle field.
+      obstacle = trimmed;
+      opportunity = "";
+    }
+
+    // Update the saved values always. Only overwrite the user's in-progress edits
+    // when they don't currently have unsaved changes.
+    setSavedP1Obstacle(obstacle);
+    setSavedP1Opportunity(opportunity);
+    if (!p1IsDirtyRef.current) {
+      setP1Obstacle(obstacle);
+      setP1Opportunity(opportunity);
+    }
+
+    // Persisted "last saved" comes from the outer component (Supabase `updated_at`).
+    // Only update it when the user is not editing unsaved content.
+    if (!p1IsDirtyRef.current) {
+      setLastP1SavedAt(dbLastSavedAtMs ?? null);
+    }
+  }, [hasApplyTab, principle, userContent, dbLastSavedAtMs]);
+
+  const persistP1Fields = (nextObstacle: string, nextOpportunity: string) => {
+    onUserContentChange(JSON.stringify({ obstacle: nextObstacle, opportunity: nextOpportunity }));
+  };
+
+  const canSaveP1 =
+    hasApplyTab &&
+    principle === "P1" &&
+    p1Obstacle.trim().length > 0 &&
+    p1Opportunity.trim().length > 0 &&
+    p1IsDirty;
+
+  const handleSaveP1 = () => {
+    if (!canSaveP1) return;
+    persistP1Fields(p1Obstacle, p1Opportunity);
+    setSavedP1Obstacle(p1Obstacle);
+    setSavedP1Opportunity(p1Opportunity);
+    setLastP1SavedAt(Date.now());
+  };
+
+  const p1HasAnyInput = p1Obstacle.trim().length > 0 || p1Opportunity.trim().length > 0;
 
   return (
     <Lightbox title={title} onClose={onClose} maxWidth={720}>
@@ -333,6 +444,7 @@ function PrincipleLightboxWithTabs({
                   setTab(t.id);
                   setOverviewExpanded(false);
                   setInPracticeExpanded(false);
+                  setApplyExpanded(false);
                 }}
                 style={{
                   background: "none",
@@ -462,23 +574,259 @@ function PrincipleLightboxWithTabs({
               </>
             )}
             {tab === "apply" && (
-              <textarea
-                value={userContent}
-                onChange={(e) => onUserContentChange(e.target.value)}
-                placeholder="Add your notes, opportunities, obstacles, or action items here…"
-                style={{
-                  width: "100%",
-                  minHeight: 180,
-                  padding: 12,
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  borderRadius: 8,
-                  color: "#fff",
-                  fontSize: 15,
-                  lineHeight: 1.5,
-                  resize: "vertical",
-                }}
-              />
+              <>
+                <div
+                  style={{
+                    maxHeight:
+                      applyExpanded
+                        ? "none"
+                        : hasApplyTab && principle === "P1"
+                          ? "20rem"
+                          : "13.5rem",
+                    overflow: applyExpanded ? "visible" : "hidden",
+                    transition: "max-height 0.25s ease-out",
+                  }}
+                >
+                  {hasApplyTab && principle === "P1" ? (
+                    <div>
+                      {!p1HasAnyInput && (
+                        <>
+                          <p style={{ margin: "0 0 0.75rem", lineHeight: 1.6, fontSize: 15 }}>
+                            Every meaningful situation contains both an obstacle and an opportunity. Name both — not one or the other.
+                          </p>
+                          <p style={{ margin: "0 0 0.75rem", lineHeight: 1.6, fontSize: 15 }}>
+                            Naming only the obstacle keeps you mired in the problem. Naming only the opportunity blinds you to what&apos;s in the way. Seeing
+                            both honestly at the same time is what makes intentional progress possible.
+                          </p>
+
+                          <p style={{ margin: "0 0 0.5rem", lineHeight: 1.6, fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.95)" }}>How to name them well:</p>
+                          <ul style={{ margin: "0 0 0.75rem", paddingLeft: "1.2rem", lineHeight: 1.5, color: "rgba(255,255,255,0.92)" }}>
+                            <li style={{ marginBottom: 6 }}>
+                              State each one as a simple fact — not a story, not a judgment, not an explanation.
+                            </li>
+                            <li style={{ marginBottom: 6 }}>Use as few words as possible — clarity matters more than completeness.</li>
+                            <li style={{ marginBottom: 6 }}>
+                              Go as deep as the moment honestly allows — surface observations are a starting point, not a destination.
+                            </li>
+                          </ul>
+
+                          <p style={{ margin: "0 0 1rem", lineHeight: 1.6, fontSize: 15 }}>
+                            You don&apos;t need to get this perfect. Future exercises will prompt you to revisit and refine both as your understanding of the
+                            situation deepens.
+                          </p>
+                        </>
+                      )}
+
+                      <p style={{ margin: "0 0 0.15rem", lineHeight: 1.6, fontSize: 15, fontWeight: 700 }}>
+                        Obstacle <span style={{ color: "rgba(255,255,255,0.9)" }}>*</span>
+                      </p>
+                      <p style={{ margin: "0 0 0.4rem", lineHeight: 1.6, fontSize: 15, color: "rgba(255,255,255,0.92)" }}>
+                        What is genuinely in the way? Name the real constraint, not the surface frustration.
+                      </p>
+                      <textarea
+                        value={p1Obstacle}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setP1Obstacle(next);
+                        }}
+                        placeholder="Type the real constraint (not the surface frustration)…"
+                        style={{
+                          width: "100%",
+                          minHeight: 18,
+                          padding: 8,
+                          background: "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.2)",
+                          borderRadius: 8,
+                          color: "#fff",
+                          fontSize: 14,
+                          lineHeight: 1.4,
+                          resize: "none",
+                          overflowY: "auto",
+                        }}
+                      />
+
+                      <div style={{ height: 4 }} />
+
+                      <p style={{ margin: "0 0 0.15rem", lineHeight: 1.6, fontSize: 15, fontWeight: 700 }}>
+                        Opportunity <span style={{ color: "rgba(255,255,255,0.9)" }}>*</span>
+                      </p>
+                      <p style={{ margin: "0 0 0.4rem", lineHeight: 1.6, fontSize: 15, color: "rgba(255,255,255,0.92)" }}>
+                        What is genuinely possible here? Name the real upside, not the optimistic hope.
+                      </p>
+                      <textarea
+                        value={p1Opportunity}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setP1Opportunity(next);
+                        }}
+                        placeholder="Type the real upside (not the optimistic hope)…"
+                        style={{
+                          width: "100%",
+                          minHeight: 18,
+                          padding: 8,
+                          background: "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.2)",
+                          borderRadius: 8,
+                          color: "#fff",
+                          fontSize: 14,
+                          lineHeight: 1.4,
+                          resize: "none",
+                          overflowY: "auto",
+                        }}
+                      />
+
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginTop: 10 }}>
+                        <button
+                          type="button"
+                          onClick={handleSaveP1}
+                          disabled={!canSaveP1}
+                          style={{
+                            width: 132,
+                            padding: "7px 10px",
+                            borderRadius: 10,
+                            border: "1px solid rgba(255,255,255,0.2)",
+                            background: canSaveP1 ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.05)",
+                            color: canSaveP1 ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.45)",
+                            cursor: canSaveP1 ? "pointer" : "not-allowed",
+                            fontWeight: 700,
+                            fontSize: 13.5,
+                          }}
+                        >
+                          Save
+                        </button>
+
+                        <p style={{ margin: "8px 0 0", fontSize: 12.5, color: "rgba(255,255,255,0.65)", width: 132, textAlign: "left" }}>
+                          Last saved:{" "}
+                          {lastP1SavedAt ? new Date(lastP1SavedAt).toLocaleString() : "—"}
+                        </p>
+                      </div>
+
+                      {applyExpanded && p1HasAnyInput && (
+                        <>
+                          <p style={{ margin: "0.85rem 0 0.75rem", lineHeight: 1.6, fontSize: 15 }}>
+                            Every meaningful situation contains both an obstacle and an opportunity. Name both — not one or the other.
+                          </p>
+                          <p style={{ margin: "0 0 0.75rem", lineHeight: 1.6, fontSize: 15 }}>
+                            Naming only the obstacle keeps you mired in the problem. Naming only the opportunity blinds you to what&apos;s in the way. Seeing
+                            both honestly at the same time is what makes intentional progress possible.
+                          </p>
+
+                          <p style={{ margin: "0 0 0.5rem", lineHeight: 1.6, fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.95)" }}>How to name them well:</p>
+                          <ul style={{ margin: "0 0 0.75rem", paddingLeft: "1.2rem", lineHeight: 1.5, color: "rgba(255,255,255,0.92)" }}>
+                            <li style={{ marginBottom: 6 }}>
+                              State each one as a simple fact — not a story, not a judgment, not an explanation.
+                            </li>
+                            <li style={{ marginBottom: 6 }}>Use as few words as possible — clarity matters more than completeness.</li>
+                            <li style={{ marginBottom: 6 }}>
+                              Go as deep as the moment honestly allows — surface observations are a starting point, not a destination.
+                            </li>
+                          </ul>
+
+                          <p style={{ margin: "0 0 1rem", lineHeight: 1.6, fontSize: 15 }}>
+                            You don&apos;t need to get this perfect. Future exercises will prompt you to revisit and refine both as your understanding of the
+                            situation deepens.
+                          </p>
+                        </>
+                      )}
+
+                    </div>
+                  ) : (
+                    <>
+                      {PRINCIPLE_IN_ACTION_PROMPT_BLOCKS[principle] ? (
+                        <div style={{ marginBottom: 12, color: "rgba(255,255,255,0.92)" }}>
+                          {renderBlocksToInline(PRINCIPLE_IN_ACTION_PROMPT_BLOCKS[principle])}
+                        </div>
+                      ) : null}
+                      {hasApplyTab ? (
+                        <textarea
+                          value={userContent}
+                          onChange={(e) => onUserContentChange(e.target.value)}
+                          placeholder="Add your notes, opportunities, obstacles, or action items here…"
+                          style={{
+                            width: "100%",
+                            minHeight: 180,
+                            padding: 12,
+                            background: "rgba(255,255,255,0.05)",
+                            border: "1px solid rgba(255,255,255,0.2)",
+                            borderRadius: 8,
+                            color: "#fff",
+                            fontSize: 15,
+                            lineHeight: 1.5,
+                            resize: "vertical",
+                          }}
+                        />
+                      ) : null}
+                    </>
+                  )}
+                </div>
+
+                {!applyExpanded && (
+                  <button
+                    type="button"
+                    onClick={() => setApplyExpanded(true)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 10,
+                      padding: 4,
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.8)",
+                      fontSize: 14,
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ display: "block" }}>Show More</span>
+                    <span style={{ display: "block", fontSize: 22, lineHeight: 1.2, marginTop: 2 }}>↓</span>
+                  </button>
+                )}
+
+                {applyExpanded && (
+                  <button
+                    type="button"
+                    onClick={() => setApplyExpanded(false)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 10,
+                      padding: 4,
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.7)",
+                      fontSize: 14,
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ display: "block" }}>Show Less</span>
+                    <span style={{ display: "block", fontSize: 22, lineHeight: 1.2, marginTop: 2 }}>↑</span>
+                  </button>
+                )}
+
+                {!hasApplyTab && principle === "P1" && onAddSituation ? (
+                  <button
+                    type="button"
+                    onClick={onAddSituation}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 10,
+                      padding: 0,
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.95)",
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                      fontSize: 15,
+                      fontWeight: 600,
+                      textAlign: "left",
+                    }}
+                  >
+                    Add a Situation
+                  </button>
+                ) : null}
+              </>
             )}
           </div>
         </div>
@@ -709,6 +1057,222 @@ function LevelLightboxWithTabs({
   );
 }
 
+function RoleLightboxWithTabs({
+  title,
+  onClose,
+  role,
+  shortDescription,
+  overviewContent,
+  inPracticeContent,
+  onNavigateToRole,
+  onNavigateToLevel,
+  onNavigateToPrinciple,
+}: {
+  title: string;
+  onClose: () => void;
+  role: Role;
+  shortDescription: string;
+  overviewContent: ReactNode;
+  inPracticeContent: ReactNode;
+  onNavigateToRole: (r: Role) => void;
+  onNavigateToLevel: (levelIndex: number) => void;
+  onNavigateToPrinciple: (p: string) => void;
+}) {
+  const [tab, setTab] = useState<"overview" | "in-practice">("overview");
+  const [overviewExpanded, setOverviewExpanded] = useState(false);
+  const [inPracticeExpanded, setInPracticeExpanded] = useState(false);
+  return (
+    <Lightbox title={title} onClose={onClose} maxWidth={720}>
+      <div>
+        <p style={{ margin: "0 0 1rem", fontSize: 18, lineHeight: 1.5, color: "rgba(255,255,255,0.98)", minHeight: "3em", fontWeight: 500 }}>
+          {shortDescription}
+        </p>
+        <p style={{ margin: "0 0 0.5rem", fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.75)" }}>
+          Navigation:
+        </p>
+        <div style={{ marginBottom: 16, fontSize: 14, lineHeight: 1.8, color: "rgba(255,255,255,0.9)" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.25rem 0" }}>
+            <span style={{ marginRight: 6 }}>Roles:</span>
+            {ROLE_NAMES.map((r, i) => (
+              <span key={r}>
+                {i > 0 && " | "}
+                <button type="button" style={navLinkStyle(role === r)} onClick={() => onNavigateToRole(r as Role)}>
+                  {role === r ? `[${r}]` : r}
+                </button>
+              </span>
+            ))}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.25rem 0" }}>
+            <span style={{ marginRight: 6 }}>Levels:</span>
+            {LEVEL_NAMES.map((lev, i) => (
+              <span key={lev}>
+                {i > 0 && " | "}
+                <button type="button" style={navLinkStyle(false)} onClick={() => onNavigateToLevel(i)}>
+                  {lev}
+                </button>
+              </span>
+            ))}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.25rem 0" }}>
+            <span style={{ marginRight: 6 }}>Principles:</span>
+            {PRINCIPLE_IDS.map((p, i) => (
+              <span key={p}>
+                {i > 0 && " | "}
+                <button type="button" style={navLinkStyle(false)} onClick={() => onNavigateToPrinciple(p)}>
+                  {p}
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.12)", paddingTop: 12, marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 20, marginBottom: 12, borderBottom: "2px solid rgba(255,255,255,0.15)", paddingBottom: 0 }}>
+            {[
+              { id: "overview" as const, label: "Overview" },
+              { id: "in-practice" as const, label: "In Practice" },
+            ].map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  setTab(t.id);
+                  setOverviewExpanded(false);
+                  setInPracticeExpanded(false);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  borderBottom: tab === t.id ? "3px solid white" : "3px solid transparent",
+                  color: tab === t.id ? "#fff" : "rgba(255,255,255,0.65)",
+                  cursor: "pointer",
+                  fontSize: 17,
+                  fontWeight: tab === t.id ? 700 : 600,
+                  padding: "10px 0",
+                  marginBottom: -2,
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ padding: "0.5rem 0", minHeight: 120, color: "rgba(255,255,255,0.9)" }}>
+            {tab === "overview" && (
+              <>
+                <div
+                  style={{
+                    maxHeight: overviewExpanded ? "none" : "13.5rem",
+                    overflow: overviewExpanded ? "visible" : "hidden",
+                    transition: "max-height 0.25s ease-out",
+                  }}
+                >
+                  {overviewContent}
+                </div>
+                {!overviewExpanded && (
+                  <button
+                    type="button"
+                    onClick={() => setOverviewExpanded(true)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 10,
+                      padding: 4,
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.8)",
+                      fontSize: 14,
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ display: "block" }}>Show More</span>
+                    <span style={{ display: "block", fontSize: 22, lineHeight: 1.2, marginTop: 2 }}>↓</span>
+                  </button>
+                )}
+                {overviewExpanded && (
+                  <button
+                    type="button"
+                    onClick={() => setOverviewExpanded(false)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 10,
+                      padding: 4,
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.7)",
+                      fontSize: 14,
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ display: "block" }}>Show Less</span>
+                    <span style={{ display: "block", fontSize: 22, lineHeight: 1.2, marginTop: 2 }}>↑</span>
+                  </button>
+                )}
+              </>
+            )}
+            {tab === "in-practice" && (
+              <>
+                <div
+                  style={{
+                    maxHeight: inPracticeExpanded ? "none" : "13.5rem",
+                    overflow: inPracticeExpanded ? "visible" : "hidden",
+                    transition: "max-height 0.25s ease-out",
+                  }}
+                >
+                  {inPracticeContent}
+                </div>
+                {!inPracticeExpanded && (
+                  <button
+                    type="button"
+                    onClick={() => setInPracticeExpanded(true)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 10,
+                      padding: 4,
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.8)",
+                      fontSize: 14,
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ display: "block" }}>Show More</span>
+                    <span style={{ display: "block", fontSize: 22, lineHeight: 1.2, marginTop: 2 }}>↓</span>
+                  </button>
+                )}
+                {inPracticeExpanded && (
+                  <button
+                    type="button"
+                    onClick={() => setInPracticeExpanded(false)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 10,
+                      padding: 4,
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255,255,255,0.7)",
+                      fontSize: 14,
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ display: "block" }}>Show Less</span>
+                    <span style={{ display: "block", fontSize: 22, lineHeight: 1.2, marginTop: 2 }}>↑</span>
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </Lightbox>
+  );
+}
+
 type CompassProps = {
   compact?: boolean;
   /** Active item (situation, want, or transformation) for principle content editing */
@@ -724,10 +1288,14 @@ type CompassProps = {
   onSituationPrincipleContentChange?: (situation: string, principle: string, content: string) => void;
   openPrincipleId?: string | null;
   onPrincipleLightboxClose?: () => void;
+  /** Optional per-principle last-saved timestamp (typically Supabase `updated_at`) keyed by `${moduleId}|${name}|${principle}` */
+  itemPrincipleUpdatedAt?: Record<string, string>;
   /** When this value increments, the Compass Framework info lightbox opens (e.g. from dashboard CTA). */
   openCompassFrameworkTrigger?: number;
   /** Called when user clicks the "Start Adding Life Roles" CTA in the Compass Modules sub-tab (closes Compass lightbox and opens Life Roles info). */
   onOpenLifeRolesInfo?: () => void;
+  /** Called when the Principle lightbox wants to start adding a Situation. */
+  onAddSituation?: () => void;
 };
 
 export default function Compass({
@@ -736,12 +1304,14 @@ export default function Compass({
   activeSituation = null,
   itemPrincipleContent = {},
   situationPrincipleContent = {},
+  itemPrincipleUpdatedAt = {},
   onPrincipleContentChange,
   onSituationPrincipleContentChange,
   openPrincipleId = null,
   onPrincipleLightboxClose,
   openCompassFrameworkTrigger,
   onOpenLifeRolesInfo,
+  onAddSituation,
 }: CompassProps) {
   const effectiveActive = activePrincipleItem ?? (activeSituation ? { moduleId: "situations" as const, name: activeSituation } : null);
   const content = Object.keys(itemPrincipleContent).length > 0 ? itemPrincipleContent : situationPrincipleContent;
@@ -1238,7 +1808,29 @@ export default function Compass({
           content: renderBlocksToInline(tab.blocks),
         }))}
         inPracticeSubTabFooter={(subTabId) =>
-          subTabId === "compass-module" && onOpenLifeRolesInfo ? (
+          subTabId === "compass-graphic" ? (
+            <p style={{ margin: "1rem 0 0", paddingTop: "1rem", borderTop: "1px solid rgba(255,255,255,0.15)", lineHeight: 1.5 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setLightboxCompassTitle(false);
+                  setLightboxRole("Achiever");
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  color: "rgba(255,255,255,0.95)",
+                  textDecoration: "underline",
+                  cursor: "pointer",
+                  fontSize: "inherit",
+                  fontWeight: 600,
+                }}
+              >
+                Click here to start exploring the Achiever role
+              </button>
+            </p>
+          ) : subTabId === "compass-module" && onOpenLifeRolesInfo ? (
             <p style={{ margin: "1rem 0 0", paddingTop: "1rem", borderTop: "1px solid rgba(255,255,255,0.15)", lineHeight: 1.5 }}>
               <button
                 type="button"
@@ -1257,7 +1849,7 @@ export default function Compass({
                   fontWeight: 600,
                 }}
               >
-                Click Here to Start Adding Life Roles
+                Click here to start adding life roles
               </button>
             </p>
           ) : null
@@ -1267,25 +1859,45 @@ export default function Compass({
       />
     )}
 
-    {lightboxRole && (lightboxRole === "Achiever" ? (
-      <LightboxWithOverviewAndPractice
-        title={ACHIEVER_ROLE_TITLE}
-        onClose={() => setLightboxRole(null)}
-        overviewContent={renderBlocksToInline(ACHIEVER_OVERVIEW)}
-        inPracticeContent={renderBlocksToInline(ACHIEVER_IN_PRACTICE)}
-        maxWidth={720}
-      />
-    ) : (
-      <Lightbox
-        title={ROLE_LIGHTBOX[lightboxRole].title}
-        onClose={() => setLightboxRole(null)}
-        maxWidth={720}
-      >
-        <div style={{ padding: "1rem 0", minHeight: 120, color: "rgba(255,255,255,0.9)" }}>
-          {ROLE_LIGHTBOX[lightboxRole].body}
-        </div>
-      </Lightbox>
-    ))}
+    {lightboxRole && (() => {
+      const { title: roleTitle, shortDescription } = ROLE_TITLE_AND_SHORT[lightboxRole];
+      const overviewContent = lightboxRole === "Achiever"
+        ? renderBlocksToInline(ACHIEVER_OVERVIEW)
+        : lightboxRole === "Leader"
+          ? renderBlocksToInline(LEADER_OVERVIEW)
+          : lightboxRole === "Follower"
+            ? renderBlocksToInline(FOLLOWER_OVERVIEW)
+            : renderBlocksToInline(PARTNER_OVERVIEW);
+      const inPracticeContent = lightboxRole === "Achiever"
+        ? renderBlocksToInline(ACHIEVER_IN_PRACTICE)
+        : lightboxRole === "Leader"
+          ? renderBlocksToInline(LEADER_IN_PRACTICE)
+          : lightboxRole === "Partner"
+            ? renderBlocksToInline(PARTNER_IN_PRACTICE)
+            : renderBlocksToInline(FOLLOWER_IN_PRACTICE);
+      return (
+        <RoleLightboxWithTabs
+          title={roleTitle}
+          onClose={() => setLightboxRole(null)}
+          role={lightboxRole}
+          shortDescription={shortDescription}
+          overviewContent={overviewContent}
+          inPracticeContent={inPracticeContent}
+          onNavigateToRole={(r) => {
+            setLightboxRole(r);
+            setRotation((current) => shortestPathAngle(current, ROLE_ANGLE[r]));
+          }}
+          onNavigateToLevel={(levelIndex) => {
+            setLightboxRole(null);
+            setLightboxLevel({ role: lightboxRole, levelIndex });
+          }}
+          onNavigateToPrinciple={(p) => {
+            setLightboxRole(null);
+            setLightboxPrinciple({ role: lightboxRole, principle: p });
+          }}
+        />
+      );
+    })()}
 
     {lightboxPrinciple && (() => {
       const { role, principle } = lightboxPrinciple;
@@ -1321,6 +1933,23 @@ export default function Compass({
             setLightboxLevel({ role, levelIndex });
           }}
           onNavigateToPrinciple={(p) => setLightboxPrinciple({ role, principle: p })}
+          onAddSituation={
+            onAddSituation
+              ? () => {
+                  handleClose();
+                  onAddSituation();
+                }
+              : undefined
+          }
+          dbLastSavedAtMs={
+            hasApplyTab
+              ? (() => {
+                  const key = effectiveActive ? `${effectiveActive.moduleId}|${effectiveActive.name}|${principle}` : "";
+                  const v = key ? itemPrincipleUpdatedAt[key] : undefined;
+                  return v ? new Date(v).getTime() : null;
+                })()
+              : null
+          }
         />
       );
     })()}

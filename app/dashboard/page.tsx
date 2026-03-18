@@ -147,6 +147,52 @@ const PRINCIPLES_BY_LEVEL: { level: string; principles: { id: string; label: str
   ]},
 ];
 
+function formatP1InActionDisplay(rawContent: string) {
+  if (!rawContent?.trim()) return "";
+
+  try {
+    const tryParse = (s: string) => {
+      try {
+        return JSON.parse(s);
+      } catch {
+        return undefined;
+      }
+    };
+
+    let parsed: unknown = tryParse(rawContent);
+
+    if (typeof parsed === "string") {
+      const inner = parsed.trim();
+      if (inner.startsWith("{") && inner.endsWith("}")) {
+        parsed = tryParse(inner);
+      }
+    }
+
+    const parsedObj = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+    const hasKeys =
+      !!parsedObj &&
+      (Object.prototype.hasOwnProperty.call(parsedObj, "obstacle") || Object.prototype.hasOwnProperty.call(parsedObj, "opportunity"));
+
+    if (!parsedObj || !hasKeys) return rawContent;
+
+    const obstacle = typeof parsedObj.obstacle === "string" ? parsedObj.obstacle : "";
+    const opportunity = typeof parsedObj.opportunity === "string" ? parsedObj.opportunity : "";
+
+    // If this looks like the new format, render the friendly two-line output.
+    if (typeof obstacle === "string" || typeof opportunity === "string") {
+      const parts: string[] = [];
+      if (obstacle.trim()) parts.push(`Obstacle: ${obstacle.trim()}`);
+      if (opportunity.trim()) parts.push(`Opportunity: ${opportunity.trim()}`);
+      return parts.join("\n");
+    }
+
+    return rawContent;
+  } catch {
+    // Back-compat: older saved P1 content was a single textarea.
+    return rawContent;
+  }
+}
+
 function Lightbox({
   title,
   onClose,
@@ -221,7 +267,7 @@ function renderInfoBlocks(blocks: InfoBlock[]) {
           return (
             <ol key={i} className="list-decimal pl-9 space-y-px my-1.5" start={block.start}>
               {block.items.map((item, j) => (
-                <li key={j}>{item}</li>
+                <li key={j}>{typeof item === "string" ? item : <><strong>{item.bold}</strong>{item.rest}</>}</li>
               ))}
             </ol>
           );
@@ -328,7 +374,8 @@ function PrinciplesByLevel({
           <div className="space-y-1">
             {principles.map(({ id, label }) => {
               const contentKey = `${moduleId}|${itemName}|${id}`;
-              const userContent = itemPrincipleContent[contentKey] ?? "";
+              const rawContent = itemPrincipleContent[contentKey] ?? "";
+              const userContent = id === "P1" ? formatP1InActionDisplay(rawContent) : rawContent;
               const isExpanded = expanded.has(id);
               return (
                 <div key={id} className="rounded-lg border border-white/10 overflow-hidden">
@@ -387,7 +434,8 @@ function FullPlanSection({
             <div className="space-y-4">
               {principles.map(({ id, label }) => {
                 const contentKey = `${moduleId}|${itemName}|${id}`;
-                const userContent = itemPrincipleContent[contentKey] ?? "";
+                const rawContent = itemPrincipleContent[contentKey] ?? "";
+                const userContent = id === "P1" ? formatP1InActionDisplay(rawContent) : rawContent;
                 return (
                   <div key={id} className="rounded-lg border border-white/15 bg-white/5 p-4">
                     <div className="flex items-center justify-between mb-2">
@@ -849,6 +897,7 @@ export default function DashboardPage() {
   const [editedName, setEditedName] = useState("");
   const [links, setLinks] = useState<Set<string>>(new Set());
   const [itemPrincipleContent, setItemPrincipleContentState] = useState<Record<string, string>>({});
+  const [itemPrincipleUpdatedAt, setItemPrincipleUpdatedAtState] = useState<Record<string, string>>({});
   const [openPrincipleId, setOpenPrincipleId] = useState<string | null>(null);
   const [modulesTab, setModulesTab] = useState<ModulesTabId>("work");
   const [addItemDraft, setAddItemDraft] = useState("");
@@ -897,7 +946,7 @@ export default function DashboardPage() {
           .eq("user_id", user.id);
         const { data: spcRows } = await supabase
           .from("item_principle_content")
-          .select("item_id, principle_id, content")
+          .select("item_id, principle_id, content, updated_at")
           .eq("user_id", user.id);
 
         const itemsByModule: Record<string, ModuleItem[]> = {
@@ -951,11 +1000,17 @@ export default function DashboardPage() {
         setLinks(linkSet);
 
         const itemContent: Record<string, string> = {};
+        const itemUpdatedAt: Record<string, string> = {};
         (spcRows ?? []).forEach((r) => {
           const meta = idToModuleAndName[r.item_id];
-          if (meta) itemContent[`${meta.moduleId}|${meta.name}|${r.principle_id}`] = r.content ?? "";
+          if (meta) {
+            const key = `${meta.moduleId}|${meta.name}|${r.principle_id}`;
+            itemContent[key] = r.content ?? "";
+            if (r.updated_at) itemUpdatedAt[key] = r.updated_at;
+          }
         });
         setItemPrincipleContentState(itemContent);
+        setItemPrincipleUpdatedAtState(itemUpdatedAt);
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
         setLoadError(message);
@@ -988,6 +1043,11 @@ export default function DashboardPage() {
   const setItemPrincipleContent = (moduleId: string, itemName: string, principle: string, content: string) => {
     const key = `${moduleId}|${itemName}|${principle}`;
     setItemPrincipleContentState((prev) => ({ ...prev, [key]: content }));
+    // Optimistically bump "last saved" for P1 immediately so the lightbox doesn't
+    // regress to an older DB timestamp while the debounced upsert is pending.
+    if (principle === "P1") {
+      setItemPrincipleUpdatedAtState((prev) => ({ ...prev, [key]: new Date().toISOString() }));
+    }
 
     const doPersist = async () => {
       const itemId = getItemId(moduleId, itemName);
@@ -1379,11 +1439,20 @@ export default function DashboardPage() {
           <Compass
             activePrincipleItem={rightPanel.type === "item-detail" && PRINCIPLE_CONTENT_MODULES.includes(rightPanel.moduleId) ? { moduleId: rightPanel.moduleId, name: rightPanel.item } : null}
             itemPrincipleContent={itemPrincipleContent}
+            itemPrincipleUpdatedAt={itemPrincipleUpdatedAt}
             onPrincipleContentChange={setItemPrincipleContent}
             openPrincipleId={openPrincipleId}
             onPrincipleLightboxClose={() => setOpenPrincipleId(null)}
             openCompassFrameworkTrigger={openCompassFrameworkTrigger}
             onOpenLifeRolesInfo={() => setShowLifeRolesInfo(true)}
+            onAddSituation={() => {
+              setOpenPrincipleId(null);
+              setModulesTab("work");
+              setAddUnderParentId(null);
+              setLinkNewItemTo(null);
+              setAddItemDraft("");
+              setRightPanel({ type: "add-item", moduleId: "situations" } as RightPanelView);
+            }}
           />
         </div>
       </div>
@@ -1813,8 +1882,11 @@ export default function DashboardPage() {
               }}
               className="border-none bg-transparent p-0 text-inherit font-medium text-white/95 hover:text-white underline underline-offset-2 cursor-pointer"
             >
-              Explore the Compass Framework Info Icon Now →
+              Explore the Compass Framework info icon now →
             </button>
+          </p>
+          <p className="m-0 mt-6 text-white/90 italic">
+            This app is a companion to Wayfinder — a book about navigating life&apos;s turning points with agency. The framework works either way.
           </p>
           <div className="mt-6 pt-4 border-t border-white/12 flex items-center gap-3">
             <label className="flex items-center gap-2 text-sm text-white/70 cursor-pointer select-none">
