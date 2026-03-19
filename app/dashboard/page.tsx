@@ -484,7 +484,7 @@ function LinkedSummary({
 
   if (sections.length === 0) {
     return (
-      <p className="text-sm text-white/60">No links yet. Click Edit links to add Life Roles, Shared Growth, or Situations.</p>
+      <p className="text-sm text-white/60">No links yet. Click Add/Edit Links to add Life Roles, Shared Growth, or Situations.</p>
     );
   }
 
@@ -801,7 +801,9 @@ function NestingModuleCard({
               {isExpanded ? "▼" : "▶"}
             </button>
           ) : (
-            <span className="w-4 shrink-0 inline-block" aria-hidden />
+            // Only reserve space for the toggle on nested rows. For top-level rows
+            // (depth=0), this avoids unwanted indentation.
+            depth > 0 ? <span className="w-4 shrink-0 inline-block" aria-hidden /> : null
           )}
           <button
             type="button"
@@ -911,8 +913,57 @@ export default function DashboardPage() {
   const [dashboardInfoDontShowAgain, setDashboardInfoDontShowAgain] = useState(false);
   const [openCompassFrameworkTrigger, setOpenCompassFrameworkTrigger] = useState(0);
 
+  const EDIT_LINKS_SEEN_STORAGE_KEY = "compass-edit-links-seen";
+  const [editLinksSeenByItem, setEditLinksSeenByItem] = useState<Record<string, boolean>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = localStorage.getItem(EDIT_LINKS_SEEN_STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+    } catch {
+      return {};
+    }
+  });
+
   /** Debounce timeouts for principle content: only persist after user stops typing so out-of-order upserts don't truncate content. */
   const principleContentSaveTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  const editLinksItemKey = (moduleId: string, itemName: string) => `${moduleId}|${itemName}`;
+
+  const markEditLinksSeen = (moduleId: string, itemName: string) => {
+    const key = editLinksItemKey(moduleId, itemName);
+    setEditLinksSeenByItem((prev) => {
+      const next = { ...prev, [key]: true };
+      try {
+        localStorage.setItem(EDIT_LINKS_SEEN_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Ignore storage failures; UI will still behave for this session.
+      }
+      return next;
+    });
+  };
+
+  // Robustly mark as "seen" when we leave editing mode (not just when clicking Done),
+  // so all modules (situations / transformations / wants) behave consistently.
+  const prevRightPanelModeRef = useRef<RightPanelView["type"] | null>(null);
+  const prevRightPanelEditingKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (rightPanel.type !== "item-detail") {
+      prevRightPanelModeRef.current = rightPanel.type;
+      prevRightPanelEditingKeyRef.current = null;
+      return;
+    }
+
+    const currKey = editLinksItemKey(rightPanel.moduleId, rightPanel.item);
+    const prevModeWasEditing = prevRightPanelModeRef.current === "item-detail" && rightPanel.mode === "summary" && prevRightPanelEditingKeyRef.current === currKey;
+
+    // We mark when transitioning from editing -> summary for the same item.
+    if (rightPanel.mode === "summary" && prevRightPanelEditingKeyRef.current === currKey) {
+      markEditLinksSeen(rightPanel.moduleId, rightPanel.item);
+    }
+
+    prevRightPanelModeRef.current = "item-detail";
+    prevRightPanelEditingKeyRef.current = rightPanel.mode === "editing" ? currKey : null;
+  }, [rightPanel, markEditLinksSeen]);
 
   const getItemId = (moduleId: string, name: string) =>
     (moduleItems[moduleId] ?? []).find((i) => i.name === name)?.id;
@@ -1109,8 +1160,40 @@ export default function DashboardPage() {
     return inserted.id as string;
   };
 
+  const hasLifeRoleAndSharedGrowth = (moduleId: string, itemName: string): boolean => {
+    if (!(["situations", "wants", "transformations"].includes(moduleId))) return false;
+    const itemId = getItemId(moduleId, itemName);
+    if (!itemId) return false;
+
+    const lifeRoleIds = new Set((moduleItems["life-roles"] ?? []).map((i) => i.id));
+    const sharedGrowthIds = new Set((moduleItems["shared-growth"] ?? []).map((i) => i.id));
+
+    let hasLifeRole = false;
+    let hasSharedGrowth = false;
+
+    links.forEach((key) => {
+      const [a, b] = key.split("|");
+      if (a !== itemId && b !== itemId) return;
+      const otherId = a === itemId ? b : a;
+
+      if (lifeRoleIds.has(otherId)) hasLifeRole = true;
+      if (sharedGrowthIds.has(otherId)) hasSharedGrowth = true;
+    });
+
+    return hasLifeRole && hasSharedGrowth;
+  };
+
   const handleItemClick = (item: string, moduleId: string) => {
-    setRightPanel({ type: "item-detail", item, moduleId, mode: "editing" });
+    const key = editLinksItemKey(moduleId, item);
+    const mode =
+      ["situations", "wants", "transformations"].includes(moduleId)
+        ? hasLifeRoleAndSharedGrowth(moduleId, item)
+          ? "summary"
+          : "editing"
+        : editLinksSeenByItem[key]
+          ? "summary"
+          : "editing";
+    setRightPanel({ type: "item-detail", item, moduleId, mode });
     setEditedName(item);
   };
 
@@ -1162,9 +1245,9 @@ export default function DashboardPage() {
     const activeId = getItemId(activeItem.moduleId, activeItem.item);
     const targetId = getItemId(targetModuleId, targetItem);
     if (!activeId || !targetId) return false;
-    if (hasLinkBetween(activeId, targetId)) return true;
-    const directlyLinkedIds = getAllItemIds().filter((id) => hasLinkBetween(activeId, id));
-    return directlyLinkedIds.some((midId) => hasLinkBetween(midId, targetId));
+    // Links are explicit pairwise relationships only.
+    // Do not infer transitive links (A->B and B->C should not imply A->C).
+    return hasLinkBetween(activeId, targetId);
   };
 
   const toggleLink = async (targetModuleId: string, targetItem: string) => {
@@ -1460,8 +1543,8 @@ export default function DashboardPage() {
       {/* Spacer — desktop only */}
       <div className="hidden lg:block flex-none w-[200px] shrink-0" />
 
-      {/* Right: Tabs + module cards or detail/add panel — top-aligned with compass */}
-      <div className="flex-none flex flex-col justify-start pt-6 lg:pt-0 lg:max-w-md w-full">
+      {/* Right: Tabs + module cards or detail/add panel — top-aligned with compass; wider when principle item-detail for two-column layout */}
+      <div className={`flex-none flex flex-col justify-start pt-6 lg:pt-0 w-full ${rightPanel.type === "item-detail" && PRINCIPLE_CONTENT_MODULES.includes(rightPanel.moduleId) ? "lg:max-w-[800px]" : "lg:max-w-md"}`}>
         {rightPanel.type === "dashboard" && (
           <>
             <div className="flex border-b border-white/20 mb-4" role="tablist" aria-label="Module views">
@@ -1491,7 +1574,7 @@ export default function DashboardPage() {
                   <NestingModuleCard
                     key={m.id}
                     moduleId={m.id}
-                    title={m.title}
+                    title={`${m.title} Module`}
                     description={m.description}
                     topLevelItems={(moduleItems[m.id] ?? []).filter((i) => !i.parent_item_id)}
                     getChildren={getChildren}
@@ -1502,7 +1585,7 @@ export default function DashboardPage() {
                   <ModuleCard
                     key={m.id}
                     moduleId={m.id}
-                    title={m.title}
+                    title={`${m.title} Module`}
                     description={m.description}
                     items={(moduleItems[m.id] ?? [])
                       .filter((i) => !i.parent_item_id)
@@ -1556,7 +1639,8 @@ export default function DashboardPage() {
             }
             setAddUnderParentId(null);
             setEditedName(name);
-            setRightPanel({ type: "item-detail", item: name, moduleId, mode: "editing" });
+          const nextMode = hasLifeRoleAndSharedGrowth(moduleId, name) ? "summary" : "editing";
+          setRightPanel({ type: "item-detail", item: name, moduleId, mode: nextMode });
             setAddItemDraft("");
           };
 
@@ -1619,7 +1703,14 @@ export default function DashboardPage() {
         })()}
 
         {rightPanel.type === "item-detail" && (
-          <RightPanel title={rightPanel.item} onBack={backToDashboard}>
+          <RightPanel
+            title={
+              (MODULES.find((m) => m.id === rightPanel.moduleId)?.title
+                ? `${MODULES.find((m) => m.id === rightPanel.moduleId)?.title} Module`
+                : rightPanel.item) ?? rightPanel.item
+            }
+            onBack={backToDashboard}
+          >
             <div className="flex flex-col gap-6">
               <div className="relative">
                 <label className="text-sm text-white/80">
@@ -1636,7 +1727,7 @@ export default function DashboardPage() {
                 {rightPanel.moduleId === "life-roles" && rightPanel.item === DEFAULT_LIFE_ROLE_NAME && (
                   <p className="mt-1 text-xs text-white/50">This default role stays as &quot;Personal Growth&quot; as a reminder to keep something in this area.</p>
                 )}
-                {!(rightPanel.moduleId === "life-roles" && rightPanel.item === DEFAULT_LIFE_ROLE_NAME) && (
+                {rightPanel.moduleId === "life-roles" && rightPanel.item !== DEFAULT_LIFE_ROLE_NAME && (
                   <button
                     type="button"
                     onClick={() => setShowRemoveConfirm(true)}
@@ -1648,7 +1739,63 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {(rightPanel.moduleId === "life-roles" || rightPanel.moduleId === "shared-growth") ? (() => {
+              {PRINCIPLE_CONTENT_MODULES.includes(rightPanel.moduleId) ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="min-w-0 flex flex-col gap-6">
+                    <PrinciplesByLevel
+                      moduleId={rightPanel.moduleId}
+                      itemName={rightPanel.item}
+                      itemPrincipleContent={itemPrincipleContent}
+                      onEditPrinciple={setOpenPrincipleId}
+                    />
+                  </div>
+                  <div className="min-w-0 flex flex-col gap-6">
+                    {!hasLifeRoleAndSharedGrowth(rightPanel.moduleId, rightPanel.item) &&
+                      (() => {
+                        const linkSections = (LINK_TARGETS[rightPanel.moduleId] ?? []).map((targetModuleId) => {
+                          const targetModule = MODULES.find((m) => m.id === targetModuleId);
+                          const items = (moduleItems[targetModuleId] ?? []).map((i) => i.name);
+                          if (!targetModule) return null;
+                          return (
+                            <LinkSection
+                              key={targetModuleId}
+                              title={targetModule.title}
+                              moduleId={targetModuleId}
+                              items={items}
+                              isLinked={isLinked}
+                              toggleLink={toggleLink}
+                              onAdd={(targetModuleId === "wants" || targetModuleId === "transformations") ? undefined : (id) => {
+                                setLinkNewItemTo(rightPanel.type === "item-detail" ? { moduleId: rightPanel.moduleId, item: rightPanel.item } : null);
+                                setAddUnderParentId(null);
+                                setAddItemDraft("");
+                                setRightPanel({ type: "add-item", moduleId: id } as RightPanelView);
+                              }}
+                            />
+                          );
+                        });
+                        return (
+                          <>
+                            {linkSections}
+                            {rightPanel.mode === "editing" && (
+                              <div className="flex justify-end gap-2 pt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (rightPanel.type === "item-detail") {
+                                      markEditLinksSeen(rightPanel.moduleId, rightPanel.item);
+                                    }
+                                    setItemDetailMode("summary");
+                                  }}
+                                  className="rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
+                                >
+                                  Done
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    {(rightPanel.moduleId === "life-roles" || rightPanel.moduleId === "shared-growth") ? (() => {
                 const itemId = getItemId(rightPanel.moduleId, rightPanel.item);
                 const linkedIds = itemId ? getLinkedIds(itemId) : [];
                 const linkedItems = linkedIds.map((id) => ({ id, ...idToMeta[id] })).filter((x) => x.moduleId);
@@ -1736,7 +1883,12 @@ export default function DashboardPage() {
                           <h3 className="text-sm font-medium text-white/90">Nested {childModule?.title ?? ""}</h3>
                           <button
                             type="button"
-                            onClick={() => { setAddUnderParentId(currentItem!.id); setLinkNewItemTo(null); setAddItemDraft(""); setRightPanel({ type: "add-item", moduleId: childModuleId } as RightPanelView); }}
+                            onClick={() => {
+                              setAddUnderParentId(currentItem!.id);
+                              setLinkNewItemTo(null);
+                              setAddItemDraft("");
+                              setRightPanel({ type: "add-item", moduleId: childModuleId } as RightPanelView);
+                            }}
                             className="text-xs text-white/60 hover:text-white"
                           >
                             + Add {childModuleId === "situations" ? "situation" : "want"} under this
@@ -1761,7 +1913,47 @@ export default function DashboardPage() {
                       </div>
                     );
                   })()}
-                  {(["situations", "wants"].includes(rightPanel.moduleId)) && (
+
+                  {hasLifeRoleAndSharedGrowth(rightPanel.moduleId, rightPanel.item) && (
+                    <>
+                      {(LINK_TARGETS[rightPanel.moduleId] ?? []).map((targetModuleId) => {
+                        const targetModule = MODULES.find((m) => m.id === targetModuleId);
+                        const items = (moduleItems[targetModuleId] ?? []).map((i) => i.name);
+                        if (!targetModule) return null;
+                        return (
+                          <LinkSection
+                            key={targetModuleId}
+                            title={targetModule.title}
+                            moduleId={targetModuleId}
+                            items={items}
+                            isLinked={isLinked}
+                            toggleLink={toggleLink}
+                            onAdd={(targetModuleId === "wants" || targetModuleId === "transformations") ? undefined : (id) => {
+                              setLinkNewItemTo(rightPanel.type === "item-detail" ? { moduleId: rightPanel.moduleId, item: rightPanel.item } : null);
+                              setAddUnderParentId(null);
+                              setAddItemDraft("");
+                              setRightPanel({ type: "add-item", moduleId: id } as RightPanelView);
+                            }}
+                          />
+                        );
+                      })}
+                      <div className="flex justify-end gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (rightPanel.type === "item-detail") {
+                              markEditLinksSeen(rightPanel.moduleId, rightPanel.item);
+                            }
+                            setItemDetailMode("summary");
+                          }}
+                          className="rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
+                        >
+                          Done
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {(["situations", "wants", "transformations"].includes(rightPanel.moduleId)) && (
                     <div className="flex flex-wrap gap-2 items-center">
                       {rightPanel.moduleId === "situations" && (() => {
                         const canPromote = hasCompletedLevel1("situations", rightPanel.item);
@@ -1780,80 +1972,271 @@ export default function DashboardPage() {
                       {rightPanel.moduleId === "wants" && (() => {
                         const canPromote = hasCompletedLevel1("wants", rightPanel.item);
                         return (
-                        <>
-                          <button type="button" onClick={() => canPromote && promoteItem(rightPanel.moduleId, rightPanel.item)} disabled={!canPromote} title={!canPromote ? "Add content in P1, P2, and P3 to promote." : undefined} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent">Promote to Transformation</button>
-                          <button type="button" onClick={() => demoteItem(rightPanel.moduleId, rightPanel.item)} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10">Demote to Situation</button>
-                          <button type="button" onClick={() => setShowMoveModal(true)} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10">Move to…</button>
-                        </>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => canPromote && promoteItem(rightPanel.moduleId, rightPanel.item)}
+                              disabled={!canPromote}
+                              title={!canPromote ? "Add content in P1, P2, and P3 to promote." : undefined}
+                              className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                            >
+                              Promote to Transformation
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => demoteItem(rightPanel.moduleId, rightPanel.item)}
+                              className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10"
+                            >
+                              Demote to Situation
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowMoveModal(true)}
+                              className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10"
+                            >
+                              Move to…
+                            </button>
+                          </>
                         );
                       })()}
                       {rightPanel.moduleId === "transformations" && (
-                        <button type="button" onClick={() => demoteItem(rightPanel.moduleId, rightPanel.item)} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10">Demote to Want</button>
+                        <button
+                          type="button"
+                          onClick={() => demoteItem(rightPanel.moduleId, rightPanel.item)}
+                          className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10"
+                        >
+                          Demote to Want
+                        </button>
                       )}
                       {rightPanel.moduleId === "situations" && (
-                        <button type="button" onClick={() => setShowMoveModal(true)} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10">Move to…</button>
+                        <button
+                          type="button"
+                          onClick={() => setShowMoveModal(true)}
+                          className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10"
+                        >
+                          Move to…
+                        </button>
                       )}
+
+                      <button
+                        type="button"
+                        onClick={() => setShowRemoveConfirm(true)}
+                        className="rounded-lg border border-red-500/50 bg-red-500/20 px-3 py-1.5 text-xs text-red-200 hover:bg-red-500/30"
+                      >
+                        Delete
+                      </button>
                     </div>
                   )}
-                  {(LINK_TARGETS[rightPanel.moduleId] ?? []).map((targetModuleId) => {
-                    const targetModule = MODULES.find((m) => m.id === targetModuleId);
-                    const items = (moduleItems[targetModuleId] ?? []).map((i) => i.name);
-                    if (!targetModule) return null;
-                    return (
-                      <LinkSection
-                        key={targetModuleId}
-                        title={targetModule.title}
-                        moduleId={targetModuleId}
-                        items={items}
-                        isLinked={isLinked}
-                        toggleLink={toggleLink}
-                        onAdd={(targetModuleId === "wants" || targetModuleId === "transformations") ? undefined : (id) => {
-                          setLinkNewItemTo(rightPanel.type === "item-detail" ? { moduleId: rightPanel.moduleId, item: rightPanel.item } : null);
-                          setAddUnderParentId(null);
-                          setAddItemDraft("");
-                          setRightPanel({ type: "add-item", moduleId: id } as RightPanelView);
-                        }}
-                      />
-                    );
-                  })}
 
-                  <div className="flex justify-end gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setItemDetailMode("summary")}
-                      className="rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
-                    >
-                      Done
-                    </button>
-                  </div>
                 </>
               ) : (
                 <>
-                  <LinkedSummary
-                    activeItem={rightPanel}
-                    moduleItems={moduleItems}
-                    isLinked={isLinked}
-                  />
-                  <div className="flex justify-end gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setItemDetailMode("editing")}
-                      className="rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
-                    >
-                      Edit links
-                    </button>
-                  </div>
+                  {(rightPanel.moduleId === "wants" || rightPanel.moduleId === "transformations") && (() => {
+                    const childModuleId = CHILD_MODULE[rightPanel.moduleId];
+                    const childModule = MODULES.find((m) => m.id === childModuleId);
+                    const currentItem = (moduleItems[rightPanel.moduleId] ?? []).find((i) => i.name === rightPanel.item);
+                    const children = currentItem ? getChildren(currentItem.id, childModuleId) : [];
+                    return (
+                      <div className="rounded-lg border border-white/10 p-4">
+                        <div className="mb-3 flex items-center justify-between">
+                          <h3 className="text-sm font-medium text-white/90">Nested {childModule?.title ?? ""}</h3>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAddUnderParentId(currentItem?.id ?? null);
+                              setLinkNewItemTo(null);
+                              setAddItemDraft("");
+                              setRightPanel({ type: "add-item", moduleId: childModuleId } as RightPanelView);
+                            }}
+                            className="text-xs text-white/60 hover:text-white"
+                          >
+                            + Add {childModuleId === "situations" ? "situation" : "want"} under this
+                          </button>
+                        </div>
+                        {children.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {children.map((c) => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => handleItemClick(c.name, childModuleId)}
+                                className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm text-white/90 hover:bg-white/10"
+                              >
+                                {c.name}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-white/50">None yet. Add {childModuleId === "situations" ? "situations" : "wants"} to nest under this.</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {hasLifeRoleAndSharedGrowth(rightPanel.moduleId, rightPanel.item) && (
+                    <>
+                      <LinkedSummary
+                        activeItem={rightPanel}
+                        moduleItems={moduleItems}
+                        isLinked={isLinked}
+                      />
+                      <div className="flex justify-start gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setItemDetailMode("editing")}
+                          className="rounded-lg border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/20"
+                        >
+                          Add/Edit Links
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {(["situations", "wants", "transformations"].includes(rightPanel.moduleId)) && (
+                    <div className="flex flex-wrap gap-2 items-center">
+                      {rightPanel.moduleId === "situations" && (() => {
+                        const canPromote = hasCompletedLevel1("situations", rightPanel.item);
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => canPromote && promoteItem(rightPanel.moduleId, rightPanel.item)}
+                            disabled={!canPromote}
+                            title={!canPromote ? "Add content in P1, P2, and P3 to promote." : undefined}
+                            className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                          >
+                            Promote to Want
+                          </button>
+                        );
+                      })()}
+
+                      {rightPanel.moduleId === "wants" && (() => {
+                        const canPromote = hasCompletedLevel1("wants", rightPanel.item);
+                        return (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => canPromote && promoteItem(rightPanel.moduleId, rightPanel.item)}
+                              disabled={!canPromote}
+                              title={!canPromote ? "Add content in P1, P2, and P3 to promote." : undefined}
+                              className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                            >
+                              Promote to Transformation
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => demoteItem(rightPanel.moduleId, rightPanel.item)}
+                              className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10"
+                            >
+                              Demote to Situation
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowMoveModal(true)}
+                              className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10"
+                            >
+                              Move to…
+                            </button>
+                          </>
+                        );
+                      })()}
+
+                      {rightPanel.moduleId === "transformations" && (
+                        <button
+                          type="button"
+                          onClick={() => demoteItem(rightPanel.moduleId, rightPanel.item)}
+                          className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10"
+                        >
+                          Demote to Want
+                        </button>
+                      )}
+
+                      {rightPanel.moduleId === "situations" && (
+                        <button
+                          type="button"
+                          onClick={() => setShowMoveModal(true)}
+                          className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10"
+                        >
+                          Move to…
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setShowRemoveConfirm(true)}
+                        className="rounded-lg border border-red-500/50 bg-red-500/20 px-3 py-1.5 text-xs text-red-200 hover:bg-red-500/30"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
-
-              {PRINCIPLE_CONTENT_MODULES.includes(rightPanel.moduleId) && (
-                <PrinciplesByLevel
-                  moduleId={rightPanel.moduleId}
-                  itemName={rightPanel.item}
-                  itemPrincipleContent={itemPrincipleContent}
-                  onEditPrinciple={setOpenPrincipleId}
-                />
+                </div>
+                </div>
+              ) : (
+                (rightPanel.moduleId === "life-roles" || rightPanel.moduleId === "shared-growth") ? (() => {
+                  const itemId = getItemId(rightPanel.moduleId, rightPanel.item);
+                  const linkedIds = itemId ? getLinkedIds(itemId) : [];
+                  const linkedItems = linkedIds.map((id) => ({ id, ...idToMeta[id] })).filter((x) => x.moduleId);
+                  const swt = linkedItems.filter((x) => ["situations", "wants", "transformations"].includes(x.moduleId));
+                  const byModule = { situations: swt.filter((x) => x.moduleId === "situations"), wants: swt.filter((x) => x.moduleId === "wants"), transformations: swt.filter((x) => x.moduleId === "transformations") };
+                  const addFromSummary = (moduleId: "situations" | "wants" | "transformations") => {
+                    setLinkNewItemTo({ moduleId: rightPanel.moduleId, item: rightPanel.item });
+                    setAddUnderParentId(null);
+                    setAddItemDraft("");
+                    setRightPanel({ type: "add-item", moduleId });
+                  };
+                  const Section = ({ title, items, addModuleId, addLabel, showAddButton, onInfoClick }: { title: string; items: { id: string; moduleId: string; name: string }[]; addModuleId: "situations" | "wants" | "transformations"; addLabel: string; showAddButton: boolean; onInfoClick?: () => void }) => (
+                    <div className="rounded-lg border border-white/10 p-4">
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <h3 className="text-sm font-medium text-white/90">{title}</h3>
+                          {onInfoClick != null && (
+                            <button type="button" onClick={(e) => { e.stopPropagation(); onInfoClick(); }} className="shrink-0 w-[15px] h-[15px] rounded-full border border-white/40 bg-white text-black flex items-center justify-center text-[10px] font-semibold leading-none hover:bg-white/90" aria-label="More information">i</button>
+                          )}
+                        </div>
+                        {showAddButton && (
+                          <button type="button" onClick={() => addFromSummary(addModuleId)} className="text-xs text-white/60 hover:text-white whitespace-nowrap">+ Add {addLabel}</button>
+                        )}
+                      </div>
+                      {items.length === 0 ? (
+                        <p className="text-sm text-white/50">None yet.</p>
+                      ) : (
+                        <ul className="space-y-3">
+                          {items.map(({ id, name, moduleId }) => {
+                            const otherIds = getLinkedIds(id);
+                            const others = otherIds.map((oid) => idToMeta[oid]).filter(Boolean);
+                            const lr = others.filter((m) => m.moduleId === "life-roles").map((m) => m.name);
+                            const sg = others.filter((m) => m.moduleId === "shared-growth").map((m) => m.name);
+                            return (
+                              <li key={id} className="border-b border-white/10 pb-3 last:border-0 last:pb-0">
+                                <button type="button" onClick={() => handleItemClick(name, moduleId)} className="text-left text-white/95 font-medium hover:text-white hover:underline">{name}</button>
+                                <div className="mt-1.5 pl-0 text-sm text-white/70 space-y-0.5">
+                                  {lr.length > 0 && <div>Connected Life Roles: {lr.join(", ")}</div>}
+                                  {sg.length > 0 && <div>Shared Growth: {sg.join(", ")}</div>}
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                  return (
+                    <div className="flex flex-col gap-4">
+                      <Section title="Situations" items={byModule.situations} addModuleId="situations" addLabel="situation" showAddButton onInfoClick={() => setShowSituationsInfo(true)} />
+                      <Section title="Wants" items={byModule.wants} addModuleId="wants" addLabel="want" showAddButton={false} onInfoClick={() => setShowWantsInfo(true)} />
+                      <Section title="Transformations" items={byModule.transformations} addModuleId="transformations" addLabel="transformation" showAddButton={false} onInfoClick={() => setShowTransformationsInfo(true)} />
+                      {swt.length === 0 && (
+                        <p className="text-sm text-white/60 rounded-lg border border-white/10 p-4">
+                          Add above and they&apos;ll be linked to this {rightPanel.moduleId === "life-roles" ? "role" : "person"}.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })() : null
               )}
+
             </div>
           </RightPanel>
         )}

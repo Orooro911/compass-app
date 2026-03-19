@@ -377,6 +377,26 @@ function PrincipleLightboxWithTabs({
     p1Opportunity.trim().length > 0 &&
     p1IsDirty;
 
+  const p1ShouldWarnOnLeave = hasApplyTab && principle === "P1" && tab === "apply" && p1IsDirty;
+
+  const attemptLeaveP1 = (proceed: () => void) => {
+    if (!p1ShouldWarnOnLeave) {
+      proceed();
+      return;
+    }
+
+    const wantsToSave = window.confirm("You have unsaved changes in In Action. Save before leaving?");
+    if (!wantsToSave) return;
+
+    if (!canSaveP1) {
+      window.alert("Please fill both fields (Obstacle * and Opportunity *) before saving.");
+      return;
+    }
+
+    handleSaveP1();
+    proceed();
+  };
+
   const handleSaveP1 = () => {
     if (!canSaveP1) return;
     persistP1Fields(p1Obstacle, p1Opportunity);
@@ -388,7 +408,15 @@ function PrincipleLightboxWithTabs({
   const p1HasAnyInput = p1Obstacle.trim().length > 0 || p1Opportunity.trim().length > 0;
 
   return (
-    <Lightbox title={title} onClose={onClose} maxWidth={720}>
+    <Lightbox
+      title={title}
+      onClose={() =>
+        attemptLeaveP1(() => {
+          onClose();
+        })
+      }
+      maxWidth={720}
+    >
       <div>
         <p style={{ margin: "0 0 0.35rem", fontSize: 19, fontWeight: 700, color: "#fff" }}>
           {role} Perspective:
@@ -405,7 +433,7 @@ function PrincipleLightboxWithTabs({
             {ROLE_NAMES.map((r, i) => (
               <span key={r}>
                 {i > 0 && " | "}
-                <button type="button" style={navLinkStyle(role === r)} onClick={() => onNavigateToRole(r as Role)}>
+                <button type="button" style={navLinkStyle(role === r)} onClick={() => attemptLeaveP1(() => onNavigateToRole(r as Role))}>
                   {role === r ? `[${r}]` : r}
                 </button>
               </span>
@@ -416,7 +444,7 @@ function PrincipleLightboxWithTabs({
             {LEVEL_NAMES.map((lev, i) => (
               <span key={lev}>
                 {i > 0 && " | "}
-                <button type="button" style={navLinkStyle(currentLevelIndex === i)} onClick={() => onNavigateToLevel(i)}>
+                <button type="button" style={navLinkStyle(currentLevelIndex === i)} onClick={() => attemptLeaveP1(() => onNavigateToLevel(i))}>
                   {currentLevelIndex === i ? `[${lev}]` : lev}
                 </button>
               </span>
@@ -427,7 +455,7 @@ function PrincipleLightboxWithTabs({
             {PRINCIPLE_IDS.map((p, i) => (
               <span key={p}>
                 {i > 0 && " | "}
-                <button type="button" style={navLinkStyle(principle === p)} onClick={() => onNavigateToPrinciple(p)}>
+                <button type="button" style={navLinkStyle(principle === p)} onClick={() => attemptLeaveP1(() => onNavigateToPrinciple(p))}>
                   {principle === p ? `[${p}]` : p}
                 </button>
               </span>
@@ -441,10 +469,20 @@ function PrincipleLightboxWithTabs({
                 key={t.id}
                 type="button"
                 onClick={() => {
-                  setTab(t.id);
-                  setOverviewExpanded(false);
-                  setInPracticeExpanded(false);
-                  setApplyExpanded(false);
+                  const nextTab = t.id;
+                  if (nextTab !== "apply") {
+                    attemptLeaveP1(() => {
+                      setTab(nextTab);
+                      setOverviewExpanded(false);
+                      setInPracticeExpanded(false);
+                      setApplyExpanded(false);
+                    });
+                  } else {
+                    setTab(nextTab);
+                    setOverviewExpanded(false);
+                    setInPracticeExpanded(false);
+                    setApplyExpanded(false);
+                  }
                 }}
                 style={{
                   background: "none",
