@@ -19,8 +19,18 @@
   }
 }
 
+html {
+  /* Reserve the vertical scrollbar gutter consistently across navigations. */
+  overflow-y: scroll;
+  overflow-x: hidden;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  /* Prevent layout shifts when scrollbars appear/disappear during panel navigation. */
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+  overflow-x: hidden;
 }

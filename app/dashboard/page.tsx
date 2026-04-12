@@ -3,7 +3,7 @@
 import Compass from "../Compass";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams, usePathname } from "next/navigation";
 import {
   DASHBOARD_INFO,
   LIFE_ROLES_INFO,
@@ -13,6 +13,8 @@ import {
   TRANSFORMATIONS_INFO,
   type InfoBlock,
 } from "./infoContent";
+import { SHOW_ONBOARDING_PROGRESS_PREVIEW } from "./onboardingPreviewConfig";
+import { OnboardingProgressPreview } from "./OnboardingProgressPreview";
 const MODULES = [
   { id: "life-roles", title: "Life Roles", description: "Your fixed identities—job title, parent, friend, volunteer, business owner.", items: ["Parent", "Software Engineer", "Volunteer", "Friend", "Mentor"] },
   { id: "shared-growth", title: "Shared Growth", description: "The people you share your life with—partner, family, colleagues.", items: ["Partner", "Team", "Kids", "Manager", "Direct reports"] },
@@ -513,15 +515,30 @@ function RightPanel({
   title,
   onBack,
   children,
+  breadcrumb,
+  typeBadge,
 }: {
-  title: string;
+  title: React.ReactNode;
   onBack: () => void;
   children: React.ReactNode;
+  breadcrumb?: React.ReactNode;
+  typeBadge?: string | null;
 }) {
   return (
     <div className="flex flex-col rounded-xl border border-white/20 bg-white/5 overflow-hidden max-h-[85vh]">
       <div className="flex items-center justify-between border-b border-white/12 px-5 py-4 shrink-0">
-        <h2 className="m-0 text-lg font-semibold text-white">{title}</h2>
+        <div className="min-w-0 pr-3 flex flex-col items-start gap-4">
+          {typeBadge ? (
+            <span className="inline-flex items-center px-3 py-1 rounded-full border border-white/20 bg-white/10 text-sm text-white/90">
+              {typeBadge}
+            </span>
+          ) : null}
+          {breadcrumb ? (
+            <div className="text-sm text-white/70">{breadcrumb}</div>
+          ) : (
+            <h2 className="m-0 text-lg font-semibold text-white truncate">{title}</h2>
+          )}
+        </div>
         <button
           type="button"
           onClick={onBack}
@@ -530,7 +547,12 @@ function RightPanel({
           Back to dashboard
         </button>
       </div>
-      <div className="flex-1 overflow-auto px-6 py-5 text-[17px] leading-relaxed">{children}</div>
+      <div
+        className="flex-1 overflow-y-scroll overflow-x-hidden px-6 py-5 text-[17px] leading-relaxed"
+        style={{ scrollbarGutter: "stable" }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -783,9 +805,12 @@ function NestingModuleCard({
   };
 
   const renderRow = (item: ModuleItem, itemModuleId: string, depth: number) => {
-    const childMod = CHILD_MODULE[itemModuleId];
-    const children = childMod ? getChildren(item.id, childMod) : [];
-    const hasChildren = children.length > 0;
+    const childMods = CHILD_MODULES_FOR_UI[itemModuleId] ?? [];
+    const childRefs: { item: ModuleItem; moduleId: string }[] = [];
+    childMods.forEach((childMod) => {
+      getChildren(item.id, childMod).forEach((child) => childRefs.push({ item: child, moduleId: childMod }));
+    });
+    const hasChildren = childRefs.length > 0;
     const isExpanded = expandedIds.has(item.id);
 
     return (
@@ -815,7 +840,7 @@ function NestingModuleCard({
         </div>
         {hasChildren && isExpanded && (
           <div className="space-y-0">
-            {children.map((child) => renderRow(child, childMod, depth + 1))}
+            {childRefs.map((cr) => renderRow(cr.item, cr.moduleId, depth + 1))}
           </div>
         )}
       </div>
@@ -873,6 +898,15 @@ const CHILD_MODULE: Record<string, string> = {
   transformations: "wants",
 };
 
+// Rendering-only nesting map.
+// - Wants -> Situations (strict rule)
+// - Transformations -> Wants (strict rule)
+// - Transformations -> Situations (so situations created under a want remain visible after promotion)
+const CHILD_MODULES_FOR_UI: Record<string, string[]> = {
+  wants: ["situations"],
+  transformations: ["wants", "situations"],
+};
+
 type ModulesTabId = "roles" | "work" | "all";
 
 const MODULES_TABS: { id: ModulesTabId; label: string; moduleIds: string[] }[] = [
@@ -886,13 +920,18 @@ type RightPanelView =
   | { type: "item-detail"; item: string; moduleId: string; mode: "editing" | "summary" }
   | { type: "add-item"; moduleId: "life-roles" | "shared-growth" | "situations" | "wants" | "transformations" };
 
-export default function DashboardPage() {
+export function DashboardClient() {
   const router = useRouter();
+  const params = useParams();
+  const routeItemId = typeof params?.id === "string" ? params.id : null;
+  const pathname = usePathname();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadKey, setLoadKey] = useState(0);
   const [moduleItems, setModuleItems] = useState<Record<string, ModuleItem[]>>(emptyModuleItems);
   const [rightPanel, setRightPanel] = useState<RightPanelView>({ type: "dashboard" });
+  const [titleOverride, setTitleOverride] = useState<string | null>(null);
+  const rightPanelRef = useRef<RightPanelView>(rightPanel);
   const [addUnderParentId, setAddUnderParentId] = useState<string | null>(null);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
@@ -912,6 +951,12 @@ export default function DashboardPage() {
   const [showDashboardInfo, setShowDashboardInfo] = useState(false);
   const [dashboardInfoDontShowAgain, setDashboardInfoDontShowAgain] = useState(false);
   const [openCompassFrameworkTrigger, setOpenCompassFrameworkTrigger] = useState(0);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [frameworkOverviewRead, setFrameworkOverviewRead] = useState(false);
+  const [frameworkOverviewInstructionHidden, setFrameworkOverviewInstructionHidden] = useState(false);
+  const [frameworkInPracticeRead, setFrameworkInPracticeRead] = useState(false);
+  const [frameworkInPracticeInstructionHidden, setFrameworkInPracticeInstructionHidden] = useState(false);
+  const onboardingProgressHydratedRef = useRef(false);
 
   const EDIT_LINKS_SEEN_STORAGE_KEY = "compass-edit-links-seen";
   const [editLinksSeenByItem, setEditLinksSeenByItem] = useState<Record<string, boolean>>(() => {
@@ -946,6 +991,9 @@ export default function DashboardPage() {
   // so all modules (situations / transformations / wants) behave consistently.
   const prevRightPanelModeRef = useRef<RightPanelView["type"] | null>(null);
   const prevRightPanelEditingKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    rightPanelRef.current = rightPanel;
+  }, [rightPanel]);
   useEffect(() => {
     if (rightPanel.type !== "item-detail") {
       prevRightPanelModeRef.current = rightPanel.type;
@@ -986,6 +1034,20 @@ export default function DashboardPage() {
           setLoading(false);
           return;
         }
+        setAuthUserId(user.id);
+        onboardingProgressHydratedRef.current = false;
+        const { data: onboardingRow } = await supabase
+          .from("user_onboarding_progress")
+          .select(
+            "framework_overview_read, framework_overview_instruction_hidden, framework_in_practice_read, framework_in_practice_instruction_hidden"
+          )
+          .eq("user_id", user.id)
+          .maybeSingle();
+        setFrameworkOverviewRead(!!onboardingRow?.framework_overview_read);
+        setFrameworkOverviewInstructionHidden(!!onboardingRow?.framework_overview_instruction_hidden);
+        setFrameworkInPracticeRead(!!onboardingRow?.framework_in_practice_read);
+        setFrameworkInPracticeInstructionHidden(!!onboardingRow?.framework_in_practice_instruction_hidden);
+        onboardingProgressHydratedRef.current = true;
         const { data: itemsRows } = await supabase
           .from("module_items")
           .select("id, module_id, name, sort_order, parent_item_id")
@@ -1044,10 +1106,41 @@ export default function DashboardPage() {
           }
         }
 
-        setModuleItems(itemsByModule);
-
+        // Backfill: ensure every parent/child nesting edge also exists as an explicit link.
+        // This makes "Edit links" reflect nesting by default, even for data created before
+        // auto-linking was added.
         const linkSet = new Set<string>();
         (linksRows ?? []).forEach((r) => linkSet.add(`${r.from_item_id}|${r.to_item_id}`));
+
+        const idToItem = new Map<string, { moduleId: string; parentItemId?: string | null }>();
+        (itemsRows ?? []).forEach((r) => {
+          idToItem.set(r.id, { moduleId: r.module_id as string, parentItemId: r.parent_item_id ?? null });
+        });
+
+        const missingLinks: { user_id: string; from_item_id: string; to_item_id: string }[] = [];
+        (itemsRows ?? []).forEach((child) => {
+          const pid = child.parent_item_id;
+          if (!pid) return;
+          const parent = idToItem.get(pid);
+          if (!parent) return;
+          const parentModuleId = parent.moduleId;
+          const childModuleId = child.module_id as string;
+          const allowedTargets = LINK_TARGETS[parentModuleId] ?? [];
+          if (!allowedTargets.includes(childModuleId)) return;
+
+          const k = `${pid}|${child.id}`;
+          const rk = `${child.id}|${pid}`;
+          if (linkSet.has(k) || linkSet.has(rk)) return;
+
+          missingLinks.push({ user_id: user.id, from_item_id: pid, to_item_id: child.id });
+        });
+
+        if (missingLinks.length > 0) {
+          await supabase.from("links").insert(missingLinks);
+          missingLinks.forEach((e) => linkSet.add(`${e.from_item_id}|${e.to_item_id}`));
+        }
+
+        setModuleItems(itemsByModule);
         setLinks(linkSet);
 
         const itemContent: Record<string, string> = {};
@@ -1070,7 +1163,35 @@ export default function DashboardPage() {
         setLoading(false);
       }
     })();
-  }, [router, loadKey]);
+  // Only re-fetch on explicit retry (loadKey), not on route param changes.
+  // Keeping `router` out of the deps avoids a visible loading flash when navigating `/dashboard/[id]`.
+  }, [loadKey]);
+
+  useEffect(() => {
+    if (!authUserId || !onboardingProgressHydratedRef.current) return;
+    const supabase = createClient();
+    (async () => {
+      await supabase
+        .from("user_onboarding_progress")
+        .upsert(
+          {
+            user_id: authUserId,
+            framework_overview_read: frameworkOverviewRead,
+            framework_overview_instruction_hidden: frameworkOverviewInstructionHidden,
+            framework_in_practice_read: frameworkInPracticeRead,
+            framework_in_practice_instruction_hidden: frameworkInPracticeInstructionHidden,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        );
+    })();
+  }, [
+    authUserId,
+    frameworkOverviewRead,
+    frameworkOverviewInstructionHidden,
+    frameworkInPracticeRead,
+    frameworkInPracticeInstructionHidden,
+  ]);
 
   const DASHBOARD_INFO_STORAGE_KEY = "compass-dashboard-info";
   const DASHBOARD_INFO_MAX_AUTO_OPENS = 4;
@@ -1157,6 +1278,15 @@ export default function DashboardPage() {
         { id: inserted.id, name: inserted.name, parent_item_id: inserted.parent_item_id ?? undefined },
       ],
     }));
+
+    // If this item was nested under another item, auto-create the corresponding link
+    // so "Edit links" reflects the nesting relationship by default.
+    if (parentItemId) {
+      const parentModuleId = Object.entries(moduleItems).find(([, arr]) => (arr ?? []).some((i) => i.id === parentItemId))?.[0];
+      if (parentModuleId && (LINK_TARGETS[parentModuleId] ?? []).includes(moduleId)) {
+        await ensureLinkById(parentItemId, inserted.id as string);
+      }
+    }
     return inserted.id as string;
   };
 
@@ -1183,8 +1313,56 @@ export default function DashboardPage() {
     return hasLifeRole && hasSharedGrowth;
   };
 
+  // Keep the right panel in sync with the deep route: `/dashboard/[id]`.
+  useEffect(() => {
+    if (loading) return;
+
+    if (!routeItemId) {
+      if (rightPanel.type !== "dashboard") {
+        setRightPanel({ type: "dashboard" });
+        setEditedName("");
+      }
+      return;
+    }
+
+    let found: { moduleId: string; name: string } | null = null;
+    Object.entries(moduleItems).forEach(([moduleId, items]) => {
+      const match = items.find((i) => i.id === routeItemId);
+      if (match) found = { moduleId, name: match.name };
+    });
+
+    if (!found) return;
+
+    const foundItem = found as { moduleId: string; name: string };
+
+    const current = rightPanelRef.current;
+    const currentIsSame =
+      current.type === "item-detail"
+        ? current.moduleId === foundItem.moduleId && current.item === foundItem.name
+        : false;
+    if (currentIsSame) return;
+
+    let mode: "editing" | "summary" = "summary";
+    if (["situations", "wants", "transformations"].includes(foundItem.moduleId)) {
+      mode = hasLifeRoleAndSharedGrowth(foundItem.moduleId, foundItem.name)
+        ? "summary"
+        : editLinksSeenByItem[editLinksItemKey(foundItem.moduleId, foundItem.name)]
+          ? "summary"
+          : "editing";
+    }
+
+    setRightPanel({ type: "item-detail", item: foundItem.name, moduleId: foundItem.moduleId, mode });
+    setEditedName(foundItem.name);
+  }, [routeItemId, loading, moduleItems, links, editLinksSeenByItem]);
+
+  // Let the computed title take over as soon as the URL changes.
+  useEffect(() => {
+    setTitleOverride(null);
+  }, [pathname]);
+
   const handleItemClick = (item: string, moduleId: string) => {
     const key = editLinksItemKey(moduleId, item);
+    const itemId = getItemId(moduleId, item);
     const mode =
       ["situations", "wants", "transformations"].includes(moduleId)
         ? hasLifeRoleAndSharedGrowth(moduleId, item)
@@ -1195,9 +1373,19 @@ export default function DashboardPage() {
           : "editing";
     setRightPanel({ type: "item-detail", item, moduleId, mode });
     setEditedName(item);
+    setTitleOverride(`My Compass: ${item}`);
+
+    if (itemId && itemId !== routeItemId) {
+      router.push(`/dashboard/${itemId}`);
+    }
   };
 
-  const backToDashboard = () => setRightPanel({ type: "dashboard" });
+  const backToDashboard = () => {
+    setTitleOverride("My Compass: Dashboard");
+    router.push("/dashboard");
+    setRightPanel({ type: "dashboard" });
+    setEditedName("");
+  };
 
   const setItemDetailMode = (mode: "editing" | "summary") => {
     setRightPanel((prev) =>
@@ -1337,6 +1525,95 @@ export default function DashboardPage() {
   const getChildren = (parentId: string, childModuleId: string) =>
     (moduleItems[childModuleId] ?? []).filter((i) => i.parent_item_id === parentId);
 
+  const effectiveItemId =
+    routeItemId ??
+    (rightPanel.type === "item-detail" ? getItemId(rightPanel.moduleId, rightPanel.item) : null);
+
+  const routeItemObj = useMemo(() => {
+    if (!effectiveItemId) return null;
+    for (const [moduleId, items] of Object.entries(moduleItems)) {
+      const match = items.find((i) => i.id === effectiveItemId);
+      if (match) {
+        return { moduleId, name: match.name, parent_item_id: match.parent_item_id ?? null, id: match.id };
+      }
+    }
+    return null;
+  }, [effectiveItemId, moduleItems]);
+
+  const moduleIdToTypeLabel = (moduleId: string) => {
+    if (moduleId === "life-roles") return "Life Role";
+    if (moduleId === "shared-growth") return "Shared Growth";
+    if (moduleId === "transformations") return "Transformation";
+    if (moduleId === "wants") return "Want";
+    if (moduleId === "situations") return "Situation";
+    return moduleId;
+  };
+
+  const breadcrumbNode = useMemo(() => {
+    if (rightPanel.type !== "item-detail" || !routeItemObj) return null;
+
+    const ancestors: { id: string; moduleId: string }[] = [];
+    let cursor: { parent_item_id: string | null } | null = routeItemObj;
+
+    while (cursor?.parent_item_id) {
+      let parentFound: { moduleId: string; id: string } | null = null;
+      for (const [moduleId, items] of Object.entries(moduleItems)) {
+        const match = items.find((i) => i.id === cursor!.parent_item_id);
+        if (match) {
+          parentFound = { moduleId, id: match.id };
+          ancestors.push(parentFound);
+          cursor = { parent_item_id: match.parent_item_id ?? null };
+          break;
+        }
+      }
+      if (!parentFound) break;
+    }
+
+    // We collected from immediate parent upwards; reverse for top->bottom breadcrumb.
+    ancestors.reverse();
+
+    const finalIsReadonly = rightPanel.moduleId === "life-roles" && rightPanel.item === DEFAULT_LIFE_ROLE_NAME;
+
+    return (
+      <div className="flex items-center justify-between gap-4 w-full">
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={() => backToDashboard()}
+            className="text-white/75 hover:text-white underline underline-offset-2"
+          >
+            Dashboard
+          </button>
+          {ancestors.map((a) => (
+            <span key={a.id} className="flex items-center gap-2">
+              <span className="text-white/35">&gt;</span>
+              <button
+                type="button"
+                onClick={() => router.push(`/dashboard/${a.id}`)}
+                className="text-white/75 hover:text-white underline underline-offset-2"
+              >
+                {moduleIdToTypeLabel(a.moduleId)}
+              </button>
+            </span>
+          ))}
+          {/* Trailing separator leading into the editable current item name textbox */}
+          <span className="text-white/35">&gt;</span>
+        </div>
+
+        <div className="relative flex items-center">
+          <div className="absolute -top-4 left-1/2 -translate-x-1/2 text-xs text-white/70">Name</div>
+          <input
+            value={editedName}
+            onChange={(e) => setEditedName(e.target.value)}
+            onBlur={() => updateItemName(rightPanel.moduleId, rightPanel.item, editedName)}
+            readOnly={finalIsReadonly}
+            className="w-auto max-w-[280px] bg-transparent border border-white/15 rounded-md px-2 py-1 text-sm text-white/95 disabled:opacity-60 disabled:cursor-default"
+          />
+        </div>
+      </div>
+    );
+  }, [editedName, moduleItems, rightPanel, routeItemId, routeItemObj, router, backToDashboard, updateItemName]);
+
   const promoteItem = async (moduleId: string, itemName: string) => {
     const itemObj = (moduleItems[moduleId] ?? []).find((i) => i.name === itemName);
     if (!itemObj) return;
@@ -1347,22 +1624,48 @@ export default function DashboardPage() {
     else if (moduleId === "wants") newModuleId = "transformations";
     else return;
     if (moduleId === "situations" && itemObj.parent_item_id) {
-      const parentWant = (moduleItems["wants"] ?? []).find((i) => i.id === itemObj.parent_item_id);
-      newParentId = parentWant?.parent_item_id ?? null;
+      const parentId = itemObj.parent_item_id;
+      // A promoted situation should remain nested under the same structural parent.
+      // - If its parent is a want, then its new want should nest under that want's parent (a transformation).
+      // - If its parent is already a transformation (e.g. created by promoting a want earlier),
+      //   then the new want should nest directly under that transformation.
+      const parentWant = (moduleItems["wants"] ?? []).find((i) => i.id === parentId);
+      if (parentWant) {
+        newParentId = parentWant.parent_item_id ?? null;
+      } else {
+        const parentTransformation = (moduleItems["transformations"] ?? []).find((i) => i.id === parentId);
+        newParentId = parentTransformation?.id ?? null;
+      }
     }
     if (moduleId === "wants") {
-      const children = getChildren(itemObj.id, "situations");
-      for (const c of children) {
-        await supabase.from("module_items").update({ parent_item_id: null }).eq("id", c.id);
-      }
-      setModuleItems((prev) => ({
-        ...prev,
-        situations: (prev.situations ?? []).map((i) =>
-          i.parent_item_id === itemObj.id ? { ...i, parent_item_id: undefined } : i
-        ),
-      }));
+      // Preserve existing situation nesting.
+      // When a want is promoted to a transformation, its child situations should remain attached
+      // to the promoted item (their parent_item_id stays pointing at itemObj.id).
     }
+
     await supabase.from("module_items").update({ module_id: newModuleId, parent_item_id: newParentId }).eq("id", itemObj.id);
+
+    // Auto-links based on the nesting relationship after promotion.
+    // Nesting implies the items should appear as linked by default.
+    if (moduleId === "wants" && newModuleId === "transformations") {
+      const children = getChildren(itemObj.id, "situations");
+      if ((LINK_TARGETS["transformations"] ?? []).includes("situations")) {
+        for (const c of children) {
+          await ensureLinkById(itemObj.id, c.id);
+        }
+      }
+    }
+    if (moduleId === "situations" && newModuleId === "wants") {
+      if (newParentId && (LINK_TARGETS["transformations"] ?? []).includes("wants")) {
+        await ensureLinkById(newParentId, itemObj.id);
+      }
+      const children = getChildren(itemObj.id, "situations");
+      if ((LINK_TARGETS["wants"] ?? []).includes("situations")) {
+        for (const c of children) {
+          await ensureLinkById(itemObj.id, c.id);
+        }
+      }
+    }
     setModuleItems((prev) => ({
       ...prev,
       [moduleId]: (prev[moduleId] ?? []).filter((i) => i.id !== itemObj.id),
@@ -1394,6 +1697,18 @@ export default function DashboardPage() {
       ),
     }));
     await supabase.from("module_items").update({ module_id: newModuleId, parent_item_id: null }).eq("id", itemObj.id);
+
+    // If this transformation becomes a want, any nested situations (including those that were
+    // preserved for the promoted-want behavior) should still be linked by default.
+    if (moduleId === "transformations" && newModuleId === "wants") {
+      const situations = getChildren(itemObj.id, "situations");
+      if ((LINK_TARGETS["wants"] ?? []).includes("situations")) {
+        for (const s of situations) {
+          await ensureLinkById(itemObj.id, s.id);
+        }
+      }
+    }
+
     setModuleItems((prev) => ({
       ...prev,
       [moduleId]: (prev[moduleId] ?? []).filter((i) => i.id !== itemObj.id),
@@ -1407,6 +1722,15 @@ export default function DashboardPage() {
     if (!itemObj) return;
     const supabase = createClient();
     await supabase.from("module_items").update({ parent_item_id: newParentId }).eq("id", itemObj.id);
+
+    // Nesting implies a default link between parent and child.
+    if (newParentId) {
+      const parentModuleId = moduleId === "situations" ? "wants" : moduleId === "wants" ? "transformations" : null;
+      if (parentModuleId && (LINK_TARGETS[parentModuleId] ?? []).includes(moduleId)) {
+        await ensureLinkById(newParentId, itemObj.id);
+      }
+    }
+
     setModuleItems((prev) => ({
       ...prev,
       [moduleId]: (prev[moduleId] ?? []).map((i) =>
@@ -1491,13 +1815,21 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="relative min-h-screen bg-[#0b0b0c] text-white flex flex-col">
+    <main className="relative min-h-screen bg-[#0b0b0c] text-white flex flex-col overflow-hidden">
       <div
-        className="flex flex-1 flex-col lg:flex-row lg:justify-center lg:items-start"
+        className="flex flex-1 flex-col min-h-0"
         style={{ padding: "min(2vh, 24px)", paddingTop: "min(12vh, 88px)" }}
       >
       <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-2">
-        <h1 className="font-semibold text-white/95 tracking-wide m-0" style={{ fontSize: "clamp(28px, 4.5vw, 36px)" }}>My Compass Dashboard</h1>
+        <h1 className="font-semibold text-white/95 tracking-wide m-0" style={{ fontSize: "clamp(28px, 4.5vw, 36px)" }}>
+          {titleOverride ??
+            (() => {
+              if (!pathname) return "My Compass: Dashboard";
+              const match = pathname.match(/^\/dashboard\/([^/]+)$/);
+              const id = match ? match[1] : null;
+              return id ? `My Compass: ${routeItemObj?.name || editedName || "—"}` : "My Compass: Dashboard";
+            })()}
+        </h1>
         <button
           type="button"
           onClick={() => { setDashboardInfoDontShowAgain(false); setShowDashboardInfo(true); }}
@@ -1516,6 +1848,14 @@ export default function DashboardPage() {
           Sign out
         </button>
       </div>
+      {SHOW_ONBOARDING_PROGRESS_PREVIEW ? (
+        <OnboardingProgressPreview
+          frameworkCompletedSubsteps={
+            (frameworkOverviewRead ? 1 : 0) + (frameworkInPracticeRead ? 1 : 0)
+          }
+        />
+      ) : null}
+      <div className="flex flex-1 flex-col lg:flex-row lg:justify-center lg:items-start min-h-0 w-full">
       {/* Left: Compass (desktop) | Top (mobile) */}
       <div className="flex-none flex items-center justify-center lg:min-w-0">
         <div className="w-full max-w-full flex justify-center">
@@ -1527,7 +1867,14 @@ export default function DashboardPage() {
             openPrincipleId={openPrincipleId}
             onPrincipleLightboxClose={() => setOpenPrincipleId(null)}
             openCompassFrameworkTrigger={openCompassFrameworkTrigger}
-            onOpenLifeRolesInfo={() => setShowLifeRolesInfo(true)}
+            frameworkOverviewRead={frameworkOverviewRead}
+            onFrameworkOverviewReadChange={setFrameworkOverviewRead}
+            frameworkOverviewInstructionHidden={frameworkOverviewInstructionHidden}
+            onFrameworkOverviewInstructionHiddenChange={setFrameworkOverviewInstructionHidden}
+            frameworkInPracticeRead={frameworkInPracticeRead}
+            onFrameworkInPracticeReadChange={setFrameworkInPracticeRead}
+            frameworkInPracticeInstructionHidden={frameworkInPracticeInstructionHidden}
+            onFrameworkInPracticeInstructionHiddenChange={setFrameworkInPracticeInstructionHidden}
             onAddSituation={() => {
               setOpenPrincipleId(null);
               setModulesTab("work");
@@ -1543,8 +1890,8 @@ export default function DashboardPage() {
       {/* Spacer — desktop only */}
       <div className="hidden lg:block flex-none w-[200px] shrink-0" />
 
-      {/* Right: Tabs + module cards or detail/add panel — top-aligned with compass; wider when principle item-detail for two-column layout */}
-      <div className={`flex-none flex flex-col justify-start pt-6 lg:pt-0 w-full ${rightPanel.type === "item-detail" && PRINCIPLE_CONTENT_MODULES.includes(rightPanel.moduleId) ? "lg:max-w-[800px]" : "lg:max-w-md"}`}>
+      {/* Right sidebar: fixed width on large screens to keep compass position stable */}
+      <div className="flex-none flex flex-col justify-start pt-6 lg:pt-0 w-full lg:w-[800px]">
         {rightPanel.type === "dashboard" && (
           <>
             <div className="flex border-b border-white/20 mb-4" role="tablist" aria-label="Module views">
@@ -1639,8 +1986,12 @@ export default function DashboardPage() {
             }
             setAddUnderParentId(null);
             setEditedName(name);
-          const nextMode = hasLifeRoleAndSharedGrowth(moduleId, name) ? "summary" : "editing";
-          setRightPanel({ type: "item-detail", item: name, moduleId, mode: nextMode });
+            const nextMode = hasLifeRoleAndSharedGrowth(moduleId, name) ? "summary" : "editing";
+            setRightPanel({ type: "item-detail", item: name, moduleId, mode: nextMode });
+            setTitleOverride(`My Compass: ${name}`);
+            if (newId && newId !== routeItemId) {
+              router.push(`/dashboard/${newId}`);
+            }
             setAddItemDraft("");
           };
 
@@ -1710,35 +2061,10 @@ export default function DashboardPage() {
                 : rightPanel.item) ?? rightPanel.item
             }
             onBack={backToDashboard}
+            breadcrumb={breadcrumbNode}
+            typeBadge={moduleIdToTypeLabel(rightPanel.moduleId)}
           >
             <div className="flex flex-col gap-6">
-              <div className="relative">
-                <label className="text-sm text-white/80">
-                  Name
-                  <input
-                    type="text"
-                    value={editedName}
-                    onChange={(e) => setEditedName(e.target.value)}
-                    onBlur={() => updateItemName(rightPanel.moduleId, rightPanel.item, editedName)}
-                    readOnly={rightPanel.moduleId === "life-roles" && rightPanel.item === DEFAULT_LIFE_ROLE_NAME}
-                    className="mt-1 block w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 pr-8 text-white disabled:opacity-80 disabled:cursor-default"
-                  />
-                </label>
-                {rightPanel.moduleId === "life-roles" && rightPanel.item === DEFAULT_LIFE_ROLE_NAME && (
-                  <p className="mt-1 text-xs text-white/50">This default role stays as &quot;Personal Growth&quot; as a reminder to keep something in this area.</p>
-                )}
-                {rightPanel.moduleId === "life-roles" && rightPanel.item !== DEFAULT_LIFE_ROLE_NAME && (
-                  <button
-                    type="button"
-                    onClick={() => setShowRemoveConfirm(true)}
-                    className="absolute bottom-2 right-2 text-red-400 hover:text-red-300 text-lg leading-none"
-                    aria-label="Remove"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-
               {PRINCIPLE_CONTENT_MODULES.includes(rightPanel.moduleId) ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="min-w-0 flex flex-col gap-6">
@@ -1873,42 +2199,55 @@ export default function DashboardPage() {
               })() : rightPanel.mode === "editing" ? (
                 <>
                   {(rightPanel.moduleId === "wants" || rightPanel.moduleId === "transformations") && (() => {
-                    const childModuleId = CHILD_MODULE[rightPanel.moduleId];
-                    const childModule = MODULES.find((m) => m.id === childModuleId);
                     const currentItem = (moduleItems[rightPanel.moduleId] ?? []).find((i) => i.name === rightPanel.item);
-                    const children = currentItem ? getChildren(currentItem.id, childModuleId) : [];
-                    return (
-                      <div className="rounded-lg border border-white/10 p-4">
-                        <div className="mb-3 flex items-center justify-between">
-                          <h3 className="text-sm font-medium text-white/90">Nested {childModule?.title ?? ""}</h3>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAddUnderParentId(currentItem!.id);
-                              setLinkNewItemTo(null);
-                              setAddItemDraft("");
-                              setRightPanel({ type: "add-item", moduleId: childModuleId } as RightPanelView);
-                            }}
-                            className="text-xs text-white/60 hover:text-white"
-                          >
-                            + Add {childModuleId === "situations" ? "situation" : "want"} under this
-                          </button>
-                        </div>
-                        {children.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
-                            {children.map((c) => (
-                              <button
-                                key={c.id}
-                                type="button"
-                                onClick={() => handleItemClick(c.name, childModuleId)}
-                                className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm text-white/90 hover:bg-white/10"
-                              >
-                                {c.name}
-                              </button>
-                            ))}
+                    const renderNestedGroup = (childModuleId: string) => {
+                      const childModule = MODULES.find((m) => m.id === childModuleId);
+                      const children = currentItem ? getChildren(currentItem.id, childModuleId) : [];
+                      return (
+                        <div key={childModuleId} className="rounded-lg border border-white/10 p-4">
+                          <div className="mb-3 flex items-center justify-between">
+                            <h3 className="text-sm font-medium text-white/90">Nested {childModule?.title ?? ""}</h3>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAddUnderParentId(currentItem!.id);
+                                setLinkNewItemTo(null);
+                                setAddItemDraft("");
+                                setRightPanel({ type: "add-item", moduleId: childModuleId } as RightPanelView);
+                              }}
+                              className="text-xs text-white/60 hover:text-white"
+                            >
+                              + Add {childModuleId === "situations" ? "situation" : "want"} under this
+                            </button>
                           </div>
-                        ) : (
-                          <p className="text-sm text-white/50">None yet. Add {childModuleId === "situations" ? "situations" : "wants"} to nest under this.</p>
+                          {children.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {children.map((c) => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => handleItemClick(c.name, childModuleId)}
+                                  className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm text-white/90 hover:bg-white/10"
+                                >
+                                  {c.name}
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-white/50">None yet. Add {childModuleId === "situations" ? "situations" : "wants"} to nest under this.</p>
+                          )}
+                        </div>
+                      );
+                    };
+
+                    return (
+                      <div className="space-y-4">
+                        {rightPanel.moduleId === "wants" && renderNestedGroup("situations")}
+                        {rightPanel.moduleId === "transformations" && (
+                          <>
+                            {renderNestedGroup("wants")}
+                            {renderNestedGroup("situations")}
+                          </>
                         )}
                       </div>
                     );
@@ -2032,42 +2371,55 @@ export default function DashboardPage() {
               ) : (
                 <>
                   {(rightPanel.moduleId === "wants" || rightPanel.moduleId === "transformations") && (() => {
-                    const childModuleId = CHILD_MODULE[rightPanel.moduleId];
-                    const childModule = MODULES.find((m) => m.id === childModuleId);
                     const currentItem = (moduleItems[rightPanel.moduleId] ?? []).find((i) => i.name === rightPanel.item);
-                    const children = currentItem ? getChildren(currentItem.id, childModuleId) : [];
-                    return (
-                      <div className="rounded-lg border border-white/10 p-4">
-                        <div className="mb-3 flex items-center justify-between">
-                          <h3 className="text-sm font-medium text-white/90">Nested {childModule?.title ?? ""}</h3>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAddUnderParentId(currentItem?.id ?? null);
-                              setLinkNewItemTo(null);
-                              setAddItemDraft("");
-                              setRightPanel({ type: "add-item", moduleId: childModuleId } as RightPanelView);
-                            }}
-                            className="text-xs text-white/60 hover:text-white"
-                          >
-                            + Add {childModuleId === "situations" ? "situation" : "want"} under this
-                          </button>
-                        </div>
-                        {children.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
-                            {children.map((c) => (
-                              <button
-                                key={c.id}
-                                type="button"
-                                onClick={() => handleItemClick(c.name, childModuleId)}
-                                className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm text-white/90 hover:bg-white/10"
-                              >
-                                {c.name}
-                              </button>
-                            ))}
+                    const renderNestedGroup = (childModuleId: string) => {
+                      const childModule = MODULES.find((m) => m.id === childModuleId);
+                      const children = currentItem ? getChildren(currentItem.id, childModuleId) : [];
+                      return (
+                        <div key={childModuleId} className="rounded-lg border border-white/10 p-4">
+                          <div className="mb-3 flex items-center justify-between">
+                            <h3 className="text-sm font-medium text-white/90">Nested {childModule?.title ?? ""}</h3>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAddUnderParentId(currentItem?.id ?? null);
+                                setLinkNewItemTo(null);
+                                setAddItemDraft("");
+                                setRightPanel({ type: "add-item", moduleId: childModuleId } as RightPanelView);
+                              }}
+                              className="text-xs text-white/60 hover:text-white"
+                            >
+                              + Add {childModuleId === "situations" ? "situation" : "want"} under this
+                            </button>
                           </div>
-                        ) : (
-                          <p className="text-sm text-white/50">None yet. Add {childModuleId === "situations" ? "situations" : "wants"} to nest under this.</p>
+                          {children.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {children.map((c) => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => handleItemClick(c.name, childModuleId)}
+                                  className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm text-white/90 hover:bg-white/10"
+                                >
+                                  {c.name}
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-white/50">None yet. Add {childModuleId === "situations" ? "situations" : "wants"} to nest under this.</p>
+                          )}
+                        </div>
+                      );
+                    };
+
+                    return (
+                      <div className="space-y-4">
+                        {rightPanel.moduleId === "wants" && renderNestedGroup("situations")}
+                        {rightPanel.moduleId === "transformations" && (
+                          <>
+                            {renderNestedGroup("wants")}
+                            {renderNestedGroup("situations")}
+                          </>
                         )}
                       </div>
                     );
@@ -2241,6 +2593,7 @@ export default function DashboardPage() {
           </RightPanel>
         )}
       </div>
+      </div>
 
       {showDashboardInfo && (
         <Lightbox
@@ -2387,4 +2740,10 @@ export default function DashboardPage() {
       )}
     </main>
   );
+}
+
+// `app/dashboard/layout.tsx` renders the persistent dashboard shell via `DashboardClient`.
+// This route (and `/dashboard/[id]`) returns `null` so we don't mount the shell twice.
+export default function DashboardPage() {
+  return null;
 }

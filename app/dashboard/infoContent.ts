@@ -18,12 +18,12 @@ export type InfoSection = { title: string; blocks: InfoBlock[] };
 export const DASHBOARD_INFO: InfoSection = {
   title: "My Compass Dashboard",
   blocks: [
-    { type: "p", text: "The Compass is a framework for navigating life's most meaningful moments with clarity and direction." },
-    { type: "p", text: "It helps you interpret the roles you carry, the situations you're facing, and the progress you want to make — revealing where alignment exists, where friction is forming, and where focused attention could move things forward." },
-    { type: "p", text: "The Compass doesn't provide answers. It offers a structure for seeing what's actually happening and choosing how to respond." },
-    { type: "p", text: "Used occasionally, it sharpens perspective. Used consistently, it becomes a rhythm — a way to stay oriented across the parts of life that matter most." },
-    { type: "p", text: "Where to begin:" },
-    { type: "p", text: "Click the ⓘ icon next to Compass Framework in the top left of the graphic. If you're new to the Compass, start with the Overview to understand how the framework works. The In Practice section explains how the app is organized and where to apply it." },
+    { type: "p", text: "Welcome to The Compass", className: "m-0 mb-2 font-semibold text-white/95" },
+    { type: "p", text: "You now have access to a tool for moving the most meaningful things in your life forward — with more clarity, intention, and agency than navigating them alone." },
+    { type: "p", text: "Before you start, there's a short orientation worth completing. The Compass is built on a mental model that makes everything in the app significantly more powerful once it's internalized. It won't take long — but approaching it in the right order matters." },
+    { type: "p", text: "Follow the sequence, check each box as you go, and by the time you're done you'll have everything you need to start using the Compass the way it was designed to be used." },
+    { type: "p", text: "Start here:", className: "m-0 mt-3 font-semibold text-white/95" },
+    { type: "p", text: "Open the ⓘ icon next to Compass Framework in the top left of the graphic and read through the Overview and In Practice tabs." },
   ],
 };
 

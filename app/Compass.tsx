@@ -20,7 +20,7 @@ import {
   ROLE_NAMES,
 } from "./content/principleAndLevelContent";
 import { renderBlocksToInline } from "./content/renderBlocks";
-import type { InfoBlock } from "./dashboard/infoContent";
+import { OnboardingProgressPreviewWithVariant } from "./dashboard/OnboardingProgressPreview";
 
 type Role = "Achiever" | "Leader" | "Follower" | "Partner";
 
@@ -124,13 +124,24 @@ const ROLE_LIGHTBOX: Record<Exclude<Role, "Achiever">, { body: ReactNode }> = {
 
 // Level content is in principleAndLevelContent.ts (LEVEL_PERSPECTIVE, LEVEL_OVERVIEW_BLOCKS, LEVEL_IN_PRACTICE_BLOCKS).
 
+function frameworkProgressSubsteps(overviewRead: boolean, inPracticeRead: boolean): number {
+  return (overviewRead ? 1 : 0) + (inPracticeRead ? 1 : 0);
+}
+
 function LightboxWithOverviewAndPractice({
   title,
   onClose,
   overviewContent,
   inPracticeContent,
-  inPracticeSubTabs,
-  inPracticeSubTabFooter,
+  frameworkOverviewRead,
+  onFrameworkOverviewReadChange,
+  hideOverviewNextInstruction,
+  onHideOverviewNextInstruction,
+  frameworkInPracticeRead,
+  onFrameworkInPracticeReadChange,
+  hideInPracticeNextInstruction,
+  onHideInPracticeNextInstruction,
+  onOpenAchieverFromFrameworkOnboarding,
   maxWidth = 720,
   maxHeight = "85vh",
 }: {
@@ -138,94 +149,189 @@ function LightboxWithOverviewAndPractice({
   onClose: () => void;
   overviewContent: ReactNode;
   inPracticeContent?: ReactNode;
-  /** When provided, In Practice shows these sub-tabs instead of a single inPracticeContent. */
-  inPracticeSubTabs?: { id: string; label: string; content: ReactNode }[];
-  /** Optional footer shown below In Practice body for a given sub-tab (e.g. CTA link). */
-  inPracticeSubTabFooter?: (subTabId: string) => ReactNode;
+  frameworkOverviewRead: boolean;
+  onFrameworkOverviewReadChange: (value: boolean) => void;
+  hideOverviewNextInstruction: boolean;
+  onHideOverviewNextInstruction: () => void;
+  frameworkInPracticeRead: boolean;
+  onFrameworkInPracticeReadChange: (value: boolean) => void;
+  hideInPracticeNextInstruction: boolean;
+  onHideInPracticeNextInstruction: () => void;
+  /** Closes framework lightbox and opens the Achiever role panel. */
+  onOpenAchieverFromFrameworkOnboarding: () => void;
   maxWidth?: number;
   maxHeight?: string | number;
 }) {
   const [tab, setTab] = useState<"overview" | "in-practice">("overview");
-  const [subTabId, setSubTabId] = useState<string | null>(inPracticeSubTabs?.[0]?.id ?? null);
-  const hasSubTabs = inPracticeSubTabs && inPracticeSubTabs.length > 0;
-  const activeSubTab = hasSubTabs && subTabId ? inPracticeSubTabs.find((t) => t.id === subTabId) : null;
-  const inPracticeBody = hasSubTabs && activeSubTab ? activeSubTab.content : inPracticeContent;
+  const inPracticeLocked = !frameworkOverviewRead;
   const contentScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     contentScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
-  }, [tab, subTabId]);
+  }, [tab]);
 
   return (
     <Lightbox title={title} onClose={onClose} maxWidth={maxWidth} maxHeight={maxHeight}>
       <div>
-        <div style={{ display: "flex", gap: 20, marginBottom: 16, borderBottom: "2px solid rgba(255,255,255,0.15)", paddingBottom: 0 }}>
-          <button
-            type="button"
-            onClick={() => setTab("overview")}
-            style={{
-              background: "none",
-              border: "none",
-              borderBottom: tab === "overview" ? "3px solid white" : "3px solid transparent",
-              color: tab === "overview" ? "#fff" : "rgba(255,255,255,0.65)",
-              cursor: "pointer",
-              fontSize: 17,
-              fontWeight: tab === "overview" ? 700 : 600,
-              padding: "10px 0",
-              marginBottom: -2,
-            }}
-          >
-            Overview
-          </button>
-          <button
-            type="button"
-            onClick={() => { setTab("in-practice"); if (hasSubTabs && inPracticeSubTabs?.[0]) setSubTabId(inPracticeSubTabs[0].id); }}
-            style={{
-              background: "none",
-              border: "none",
-              borderBottom: tab === "in-practice" ? "3px solid white" : "3px solid transparent",
-              color: tab === "in-practice" ? "#fff" : "rgba(255,255,255,0.65)",
-              cursor: "pointer",
-              fontSize: 17,
-              fontWeight: tab === "in-practice" ? 700 : 600,
-              padding: "10px 0",
-              marginBottom: -2,
-            }}
-          >
-            In Practice
-          </button>
-        </div>
-        {tab === "in-practice" && hasSubTabs && (
-          <div style={{ marginBottom: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {inPracticeSubTabs.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setSubTabId(t.id)}
-                  style={{
-                    background: subTabId === t.id ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.06)",
-                    border: subTabId === t.id ? "1px solid rgba(255,255,255,0.5)" : "1px solid rgba(255,255,255,0.2)",
-                    borderRadius: 8,
-                    color: subTabId === t.id ? "#fff" : "rgba(255,255,255,0.8)",
-                    cursor: "pointer",
-                    fontSize: 15,
-                    fontWeight: subTabId === t.id ? 700 : 600,
-                    padding: "10px 18px",
-                  }}
-                >
-                  {t.label}
-                </button>
-              ))}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: -16, marginBottom: 6, borderBottom: "2px solid rgba(255,255,255,0.15)", paddingBottom: 6 }}>
+          <div style={{ display: "flex", gap: 20 }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (tab === "in-practice" && frameworkInPracticeRead && !hideInPracticeNextInstruction) {
+                  onHideInPracticeNextInstruction();
+                }
+                setTab("overview");
+              }}
+              style={{
+                background: tab === "overview" ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.22)",
+                borderBottom: tab === "overview" ? "2px solid rgba(26,26,28,1)" : "1px solid rgba(255,255,255,0.22)",
+                borderRadius: "10px 10px 0 0",
+                color: tab === "overview" ? "#fff" : "rgba(255,255,255,0.72)",
+                cursor: "pointer",
+                fontSize: 16,
+                fontWeight: tab === "overview" ? 700 : 600,
+                padding: "7px 14px",
+                marginBottom: -2,
+              }}
+            >
+              Overview
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (inPracticeLocked) return;
+                if (!hideOverviewNextInstruction) onHideOverviewNextInstruction();
+                setTab("in-practice");
+              }}
+              disabled={inPracticeLocked}
+              aria-disabled={inPracticeLocked}
+              title={inPracticeLocked ? "Complete Overview to unlock In Practice" : "In Practice"}
+              style={{
+                background: inPracticeLocked
+                  ? "rgba(255,255,255,0.02)"
+                  : tab === "in-practice"
+                    ? "rgba(255,255,255,0.12)"
+                    : "rgba(255,255,255,0.04)",
+                border: inPracticeLocked ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(255,255,255,0.22)",
+                borderBottom: tab === "in-practice" ? "2px solid rgba(26,26,28,1)" : inPracticeLocked ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(255,255,255,0.22)",
+                borderRadius: "10px 10px 0 0",
+                color: inPracticeLocked ? "rgba(255,255,255,0.45)" : tab === "in-practice" ? "#fff" : "rgba(255,255,255,0.72)",
+                cursor: inPracticeLocked ? "not-allowed" : "pointer",
+                fontSize: 16,
+                fontWeight: tab === "in-practice" ? 700 : 600,
+                padding: "7px 14px",
+                marginBottom: -2,
+              }}
+            >
+              {inPracticeLocked ? "🔒 In Practice" : "In Practice"}
+            </button>
           </div>
-        )}
+          <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "flex-start", minWidth: 0 }}>
+            <OnboardingProgressPreviewWithVariant
+              variant="inline"
+              frameworkCompletedSubsteps={frameworkProgressSubsteps(frameworkOverviewRead, frameworkInPracticeRead)}
+            />
+          </div>
+        </div>
         <div
           ref={contentScrollRef}
           style={{ padding: "0.5rem 0", height: "60vh", overflowY: "auto", color: "rgba(255,255,255,0.9)" }}
         >
-          {tab === "overview" && overviewContent}
-          {tab === "in-practice" && inPracticeBody}
+          {tab === "overview" && (
+            <>
+              {overviewContent}
+              <div style={{ marginTop: 14, marginBottom: 6 }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    color: "rgba(255,255,255,0.88)",
+                    fontSize: 14.5,
+                    cursor: "pointer",
+                    userSelect: "none",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={frameworkOverviewRead}
+                    onChange={(e) => onFrameworkOverviewReadChange(e.target.checked)}
+                  />
+                  I&apos;ve read the Overview.
+                </label>
+                {frameworkOverviewRead && !hideOverviewNextInstruction ? (
+                  <p
+                    style={{
+                      margin: "8px 0 0",
+                      fontSize: 14,
+                      color: "rgba(255,255,255,0.78)",
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    Now review the In Practice tab above to continue your orientation.
+                  </p>
+                ) : null}
+              </div>
+            </>
+          )}
+          {tab === "in-practice" && (
+            <>
+              {inPracticeContent}
+              <div style={{ marginTop: 14, marginBottom: 6 }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    color: "rgba(255,255,255,0.88)",
+                    fontSize: 14.5,
+                    cursor: "pointer",
+                    userSelect: "none",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={frameworkInPracticeRead}
+                    onChange={(e) => onFrameworkInPracticeReadChange(e.target.checked)}
+                  />
+                  I&apos;ve read the Compass Framework In Practice.
+                </label>
+                {frameworkInPracticeRead && !hideInPracticeNextInstruction ? (
+                  <p
+                    style={{
+                      margin: "8px 0 0",
+                      fontSize: 14,
+                      color: "rgba(255,255,255,0.78)",
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    Your next orientation step is the Achiever posture. Click the ⓘ icon next to Achiever at the top of the
+                    Compass graphic — or{" "}
+                    <button
+                      type="button"
+                      onClick={onOpenAchieverFromFrameworkOnboarding}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        color: "rgba(255,255,255,0.95)",
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                        fontSize: "inherit",
+                        fontWeight: 600,
+                      }}
+                    >
+                      click here
+                    </button>{" "}
+                    to open it now.
+                  </p>
+                ) : null}
+              </div>
+            </>
+          )}
         </div>
-        {tab === "in-practice" && subTabId && inPracticeSubTabFooter?.(subTabId)}
       </div>
     </Lightbox>
   );
@@ -1330,10 +1436,20 @@ type CompassProps = {
   itemPrincipleUpdatedAt?: Record<string, string>;
   /** When this value increments, the Compass Framework info lightbox opens (e.g. from dashboard CTA). */
   openCompassFrameworkTrigger?: number;
-  /** Called when user clicks the "Start Adding Life Roles" CTA in the Compass Modules sub-tab (closes Compass lightbox and opens Life Roles info). */
-  onOpenLifeRolesInfo?: () => void;
   /** Called when the Principle lightbox wants to start adding a Situation. */
   onAddSituation?: () => void;
+  /** Persisted onboarding checkpoint: true once user checks "I've read the Overview." */
+  frameworkOverviewRead?: boolean;
+  onFrameworkOverviewReadChange?: (value: boolean) => void;
+  /** Hide "Now review In Practice..." after user leaves Overview once. */
+  frameworkOverviewInstructionHidden?: boolean;
+  onFrameworkOverviewInstructionHiddenChange?: (value: boolean) => void;
+  /** Persisted: user checked "I've read the Compass Framework In Practice." */
+  frameworkInPracticeRead?: boolean;
+  onFrameworkInPracticeReadChange?: (value: boolean) => void;
+  /** Hide Achiever next-step instruction after user leaves In Practice tab once. */
+  frameworkInPracticeInstructionHidden?: boolean;
+  onFrameworkInPracticeInstructionHiddenChange?: (value: boolean) => void;
 };
 
 export default function Compass({
@@ -1348,10 +1464,37 @@ export default function Compass({
   openPrincipleId = null,
   onPrincipleLightboxClose,
   openCompassFrameworkTrigger,
-  onOpenLifeRolesInfo,
   onAddSituation,
+  frameworkOverviewRead,
+  onFrameworkOverviewReadChange,
+  frameworkOverviewInstructionHidden,
+  onFrameworkOverviewInstructionHiddenChange,
+  frameworkInPracticeRead,
+  onFrameworkInPracticeReadChange,
+  frameworkInPracticeInstructionHidden,
+  onFrameworkInPracticeInstructionHiddenChange,
 }: CompassProps) {
+  const [frameworkOverviewReadLocal, setFrameworkOverviewReadLocal] = useState(false);
+  const [frameworkOverviewInstructionHiddenLocal, setFrameworkOverviewInstructionHiddenLocal] = useState(false);
+  const [frameworkInPracticeReadLocal, setFrameworkInPracticeReadLocal] = useState(false);
+  const [frameworkInPracticeInstructionHiddenLocal, setFrameworkInPracticeInstructionHiddenLocal] = useState(false);
+  const effectiveFrameworkOverviewRead = frameworkOverviewRead ?? frameworkOverviewReadLocal;
+  const setEffectiveFrameworkOverviewRead = onFrameworkOverviewReadChange ?? setFrameworkOverviewReadLocal;
+  const effectiveFrameworkOverviewInstructionHidden = frameworkOverviewInstructionHidden ?? frameworkOverviewInstructionHiddenLocal;
+  const setEffectiveFrameworkOverviewInstructionHidden =
+    onFrameworkOverviewInstructionHiddenChange ?? setFrameworkOverviewInstructionHiddenLocal;
+  const effectiveFrameworkInPracticeRead = frameworkInPracticeRead ?? frameworkInPracticeReadLocal;
+  const setEffectiveFrameworkInPracticeRead = onFrameworkInPracticeReadChange ?? setFrameworkInPracticeReadLocal;
+  const effectiveFrameworkInPracticeInstructionHidden =
+    frameworkInPracticeInstructionHidden ?? frameworkInPracticeInstructionHiddenLocal;
+  const setEffectiveFrameworkInPracticeInstructionHidden =
+    onFrameworkInPracticeInstructionHiddenChange ?? setFrameworkInPracticeInstructionHiddenLocal;
+
   const effectiveActive = activePrincipleItem ?? (activeSituation ? { moduleId: "situations" as const, name: activeSituation } : null);
+  // `effectiveActive` is derived from props and may be recreated on every render
+  // (e.g. when callers pass an inline object literal). Use a stable string key
+  // so we don't reset the lightbox while the user is typing.
+  const effectiveActiveKey = effectiveActive ? `${effectiveActive.moduleId}|${effectiveActive.name}` : null;
   const content = Object.keys(itemPrincipleContent).length > 0 ? itemPrincipleContent : situationPrincipleContent;
   const lookupContent = (principle: string) =>
     effectiveActive ? (content[`${effectiveActive.moduleId}|${effectiveActive.name}|${principle}`] ?? "") : "";
@@ -1363,13 +1506,13 @@ export default function Compass({
   const [lightboxLevel, setLightboxLevel] = useState<{ role: Role; levelIndex: number } | null>(null);
 
   useEffect(() => {
-    if (openPrincipleId && effectiveActive) {
+    if (openPrincipleId && effectiveActiveKey) {
       setLightboxCompassTitle(false);
       setLightboxRole(null);
       setLightboxLevel(null);
       setLightboxPrinciple({ role: "Achiever", principle: openPrincipleId });
     }
-  }, [openPrincipleId, effectiveActive]);
+  }, [openPrincipleId, effectiveActiveKey]);
 
   const openCompassFrameworkTriggerPrev = useRef(0);
   useEffect(() => {
@@ -1840,58 +1983,20 @@ export default function Compass({
         title={COMPASS_FRAMEWORK.title}
         onClose={() => setLightboxCompassTitle(false)}
         overviewContent={renderBlocksToInline(COMPASS_FRAMEWORK.overview)}
-        inPracticeSubTabs={COMPASS_FRAMEWORK.inPracticeSubTabs.map((tab: { id: string; label: string; blocks: InfoBlock[] }) => ({
-          id: tab.id,
-          label: tab.label,
-          content: renderBlocksToInline(tab.blocks),
-        }))}
-        inPracticeSubTabFooter={(subTabId) =>
-          subTabId === "compass-graphic" ? (
-            <p style={{ margin: "1rem 0 0", paddingTop: "1rem", borderTop: "1px solid rgba(255,255,255,0.15)", lineHeight: 1.5 }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setLightboxCompassTitle(false);
-                  setLightboxRole("Achiever");
-                }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  color: "rgba(255,255,255,0.95)",
-                  textDecoration: "underline",
-                  cursor: "pointer",
-                  fontSize: "inherit",
-                  fontWeight: 600,
-                }}
-              >
-                Click here to start exploring the Achiever role
-              </button>
-            </p>
-          ) : subTabId === "compass-module" && onOpenLifeRolesInfo ? (
-            <p style={{ margin: "1rem 0 0", paddingTop: "1rem", borderTop: "1px solid rgba(255,255,255,0.15)", lineHeight: 1.5 }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setLightboxCompassTitle(false);
-                  onOpenLifeRolesInfo();
-                }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  color: "rgba(255,255,255,0.95)",
-                  textDecoration: "underline",
-                  cursor: "pointer",
-                  fontSize: "inherit",
-                  fontWeight: 600,
-                }}
-              >
-                Click here to start adding life roles
-              </button>
-            </p>
-          ) : null
-        }
+        frameworkOverviewRead={effectiveFrameworkOverviewRead}
+        onFrameworkOverviewReadChange={setEffectiveFrameworkOverviewRead}
+        hideOverviewNextInstruction={effectiveFrameworkOverviewInstructionHidden}
+        onHideOverviewNextInstruction={() => setEffectiveFrameworkOverviewInstructionHidden(true)}
+        inPracticeContent={renderBlocksToInline(COMPASS_FRAMEWORK.inPractice)}
+        frameworkInPracticeRead={effectiveFrameworkInPracticeRead}
+        onFrameworkInPracticeReadChange={setEffectiveFrameworkInPracticeRead}
+        hideInPracticeNextInstruction={effectiveFrameworkInPracticeInstructionHidden}
+        onHideInPracticeNextInstruction={() => setEffectiveFrameworkInPracticeInstructionHidden(true)}
+        onOpenAchieverFromFrameworkOnboarding={() => {
+          setLightboxCompassTitle(false);
+          setLightboxRole("Achiever");
+          setEffectiveFrameworkInPracticeInstructionHidden(true);
+        }}
         maxWidth={1200}
         maxHeight="95vh"
       />
