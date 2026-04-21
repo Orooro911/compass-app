@@ -12,10 +12,13 @@ export default function Home() {
             A companion app for navigating life's most meaningful pursuits
           </p>
         </div>
-        <p className="text-base md:text-lg text-white/80 max-w-2xl mb-12 leading-relaxed">
-          {
-            "There's no formal training for navigating the endeavors in life that matter most. Those times when people are trying to find, improve, build, scale, or become something that truly defines their next chapter. Whether just beginning or already in motion, people risk losing their bearing or moving in the wrong direction without an effective system for navigating the terrain. The Compass changes that with two critical reference points that — once their relationship is understood — can guide any meaningful pursuit with clarity, intention, and agency."
-          }
+        <p className="text-base md:text-lg text-white/80 max-w-2xl mb-12 leading-relaxed m-0">
+          Some pursuits in life carry more weight than others. The ones where people are trying to find, improve, build,
+          scale, or become something that truly defines their next chapter. Whether just beginning or already in motion,
+          everyone inside something that matters is structurally disadvantaged by that fact alone — at risk of losing
+          their bearing or moving in the wrong direction without an external perspective to navigate by. The Compass
+          changes that with two frames of reference that — once each is understood and their relationship becomes clear
+          — can guide any meaningful pursuit with clarity, intention, and agency.
         </p>
         <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center">
           <Link

@@ -17,7 +17,7 @@ export const COMPASS_FRAMEWORK_IN_PRACTICE_MODULES_ARCHIVED: InfoBlock[] = [
   { type: "p", text: "The Roles & Relationships tab contains:" },
   { type: "ul", items: [
     "Life Roles — The real responsibilities or identities you carry in life — such as parent, friend, volunteer, or business owner.",
-    "Shared Growth — The people connected to those responsibilities — partners, family members, colleagues, teammates, managers, or employees.",
+    "Connections — The people connected to those responsibilities — partners, family members, colleagues, teammates, managers, or employees.",
   ]},
   { type: "p", text: "Within these modules, you can add the roles you carry in life and the people you share it with. Once added, you can use the Compass as a thinking or mining tool to reflect on how you are showing up within those relationships." },
   { type: "pStrong", text: "Meaningful Work" },

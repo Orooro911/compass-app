@@ -1,11 +1,10 @@
 "use client";
 
 import Compass from "../Compass";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, type CSSProperties } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useParams, usePathname } from "next/navigation";
 import {
-  DASHBOARD_INFO,
   LIFE_ROLES_INFO,
   SHARED_GROWTH_INFO,
   SITUATIONS_INFO,
@@ -14,10 +13,11 @@ import {
   type InfoBlock,
 } from "./infoContent";
 import { SHOW_ONBOARDING_PROGRESS_PREVIEW } from "./onboardingPreviewConfig";
-import { OnboardingProgressPreview } from "./OnboardingProgressPreview";
+import { isOrientationNavigationLocked } from "./orientationGateConfig";
+import { OnboardingProgressPreview, OnboardingProgressPreviewWithVariant } from "./OnboardingProgressPreview";
 const MODULES = [
   { id: "life-roles", title: "Life Roles", description: "Your fixed identities—job title, parent, friend, volunteer, business owner.", items: ["Parent", "Software Engineer", "Volunteer", "Friend", "Mentor"] },
-  { id: "shared-growth", title: "Shared Growth", description: "The people you share your life with—partner, family, colleagues.", items: ["Partner", "Team", "Kids", "Manager", "Direct reports"] },
+  { id: "shared-growth", title: "Connections", description: "The people you share your life with—partner, family, colleagues.", items: ["Partner", "Team", "Kids", "Manager", "Direct reports"] },
   { id: "situations", title: "Situations", description: "Meaningful situations to work through strategically with the Compass.", items: ["Career transition", "Difficult conversation", "New project", "Feedback session", "Conflict resolution", "Team restructure", "Salary negotiation", "Onboarding"] },
   { id: "wants", title: "Wants", description: "What you want to pursue—each can nest situations underneath.", items: [] },
   { id: "transformations", title: "Transformations", description: "Major shifts or builds—each can nest wants, which nest situations.", items: [] },
@@ -225,6 +225,134 @@ function Lightbox({
         </div>
         <div className="px-10 py-6">{children}</div>
       </div>
+    </div>
+  );
+}
+
+/** Both Framework tabs read; extend when Postures / later steps are part of “orientation complete” for this lightbox. */
+function isOrientationWelcomeLightboxComplete(overviewRead: boolean, inPracticeRead: boolean): boolean {
+  return overviewRead && inPracticeRead;
+}
+
+function orientationResumeTarget(frameworkOverviewRead: boolean, frameworkInPracticeRead: boolean): {
+  label: string;
+  tab: "overview" | "in-practice";
+} {
+  if (!frameworkOverviewRead) return { label: "Framework — Overview", tab: "overview" };
+  if (!frameworkInPracticeRead) return { label: "Framework — In Practice", tab: "in-practice" };
+  return { label: "Compass Framework", tab: "overview" };
+}
+
+function WelcomeOrientationLightboxBody({
+  phase,
+  frameworkOverviewRead,
+  frameworkInPracticeRead,
+  onOpenFramework,
+}: {
+  phase: "welcome" | "welcomeBack";
+  frameworkOverviewRead: boolean;
+  frameworkInPracticeRead: boolean;
+  onOpenFramework: (tab: "overview" | "in-practice") => void;
+}) {
+  const frameworkSubsteps = (frameworkOverviewRead ? 1 : 0) + (frameworkInPracticeRead ? 1 : 0);
+  const resume = orientationResumeTarget(frameworkOverviewRead, frameworkInPracticeRead);
+  const linkClass =
+    "inline p-0 border-0 bg-transparent text-sky-300 underline underline-offset-2 cursor-pointer font-inherit hover:text-sky-200 text-left";
+
+  return (
+    <div className="space-y-5 text-[17px] text-white/90 leading-[1.6]">
+      {phase === "welcome" ? (
+        <>
+          <p className="m-0">
+            The Compass is a framework for intentional progress — developed alongside Wayfinder, a book about navigating
+            life&apos;s most meaningful pursuits with intention and agency. It was built into this app to make the
+            framework both easier to absorb and practical to use.
+          </p>
+          <p className="m-0">
+            Most frameworks teach you what to do. The Compass changes what you&apos;re able to see. And once that lens is
+            in place, it doesn&apos;t come out — everything navigated from this point forward is different because of it.
+            But there are two things worth doing before anything else.
+          </p>
+          <p className="m-0">
+            The first is understanding the Compass as a mental model with enough depth that it clicks. That
+            understanding alone — completely independent of this app — is worth what it takes to get there.
+          </p>
+          <p className="m-0">
+            The second is a baseline of setup that unlocks the app&apos;s full potential. The framework becomes
+            significantly more powerful when it&apos;s applied directly to the roles you carry, the connections you have,
+            and the pursuits worth navigating right now.
+          </p>
+          <p className="m-0">
+            The orientation walks through both — in five stages, each building on the one before it.
+          </p>
+          <div className="py-1">
+            <OnboardingProgressPreviewWithVariant variant="lightbox" forceEmptyAll />
+          </div>
+          <p className="m-0">
+            Take your time and let the model sink in. When you&apos;re ready, begin with the Framework stage. (Open the
+            ⓘ icon next to Compass Framework in the top left of the graphic, or{" "}
+            <button type="button" className={linkClass} onClick={() => onOpenFramework("overview")}>
+              click here
+            </button>
+            {".)"}
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="m-0">Your orientation is still in progress. Pick up where you left off:</p>
+          <p className="m-0">
+            You&apos;re currently on {resume.label}.{" "}
+            <button type="button" className={linkClass} onClick={() => onOpenFramework(resume.tab)}>
+              Click here to continue.
+            </button>
+          </p>
+          <div className="py-1">
+            <OnboardingProgressPreviewWithVariant variant="lightbox" frameworkCompletedSubsteps={frameworkSubsteps} />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function OrientationGateDialogContent({
+  frameworkOverviewRead,
+  frameworkInPracticeRead,
+  onContinue,
+}: {
+  frameworkOverviewRead: boolean;
+  frameworkInPracticeRead: boolean;
+  onContinue: () => void;
+}) {
+  const continueBtn = (
+    <button
+      type="button"
+      onClick={onContinue}
+      className="inline p-0 border-0 bg-transparent text-sky-300 underline underline-offset-2 cursor-pointer font-inherit hover:text-sky-200 text-left"
+    >
+      Click here to continue.
+    </button>
+  );
+  return (
+    <div className="text-white/90" style={{ fontSize: "clamp(16px, 2vw, 18px)", lineHeight: 1.5 }}>
+      <p className="m-0 mb-4">
+        This is part of the full Compass experience and will be available once your orientation is complete.
+      </p>
+      <p className="m-0">
+        {!frameworkOverviewRead ? (
+          <>
+            You&apos;re currently on Framework — Overview. {continueBtn}
+          </>
+        ) : !frameworkInPracticeRead ? (
+          <>
+            You&apos;re currently on Framework — In Practice. {continueBtn}
+          </>
+        ) : (
+          <>
+            Continue the next orientation steps in the Compass Framework. {continueBtn}
+          </>
+        )}
+      </p>
     </div>
   );
 }
@@ -486,7 +614,7 @@ function LinkedSummary({
 
   if (sections.length === 0) {
     return (
-      <p className="text-sm text-white/60">No links yet. Click Add/Edit Links to add Life Roles, Shared Growth, or Situations.</p>
+      <p className="text-sm text-white/60">No links yet. Click Add/Edit Links to add Life Roles, Connections, or Situations.</p>
     );
   }
 
@@ -949,14 +1077,112 @@ export function DashboardClient() {
   const [showLifeRolesInfo, setShowLifeRolesInfo] = useState(false);
   const [showSharedGrowthInfo, setShowSharedGrowthInfo] = useState(false);
   const [showDashboardInfo, setShowDashboardInfo] = useState(false);
-  const [dashboardInfoDontShowAgain, setDashboardInfoDontShowAgain] = useState(false);
   const [openCompassFrameworkTrigger, setOpenCompassFrameworkTrigger] = useState(0);
-  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [openCompassFrameworkTab, setOpenCompassFrameworkTab] = useState<"overview" | "in-practice">("overview");
+  const [orientationGateMessageOpen, setOrientationGateMessageOpen] = useState(false);
   const [frameworkOverviewRead, setFrameworkOverviewRead] = useState(false);
   const [frameworkOverviewInstructionHidden, setFrameworkOverviewInstructionHidden] = useState(false);
   const [frameworkInPracticeRead, setFrameworkInPracticeRead] = useState(false);
   const [frameworkInPracticeInstructionHidden, setFrameworkInPracticeInstructionHidden] = useState(false);
-  const onboardingProgressHydratedRef = useRef(false);
+  /** True only after `user_onboarding_progress` has been read for the current session load (avoids upserting defaults over real DB state). */
+  const [onboardingProgressHydrated, setOnboardingProgressHydrated] = useState(false);
+
+  const onboardingMirrorRef = useRef({
+    frameworkOverviewRead: false,
+    frameworkOverviewInstructionHidden: false,
+    frameworkInPracticeRead: false,
+    frameworkInPracticeInstructionHidden: false,
+  });
+  onboardingMirrorRef.current = {
+    frameworkOverviewRead,
+    frameworkOverviewInstructionHidden,
+    frameworkInPracticeRead,
+    frameworkInPracticeInstructionHidden,
+  };
+
+  /** Auto-open welcome/welcome-back at most once per dashboard mount (e.g. after login); not on checkbox toggles. */
+  const welcomeOrientationLightboxAutoOpenedRef = useRef(false);
+
+  const persistOnboardingProgress = useCallback(
+    async (
+      patch: Partial<{
+        frameworkOverviewRead: boolean;
+        frameworkOverviewInstructionHidden: boolean;
+        frameworkInPracticeRead: boolean;
+        frameworkInPracticeInstructionHidden: boolean;
+      }>
+    ) => {
+      if (!onboardingProgressHydrated) return;
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const m = { ...onboardingMirrorRef.current, ...patch };
+      const { error } = await supabase.from("user_onboarding_progress").upsert(
+        {
+          user_id: user.id,
+          framework_overview_read: m.frameworkOverviewRead,
+          framework_overview_instruction_hidden: m.frameworkOverviewInstructionHidden,
+          framework_in_practice_read: m.frameworkInPracticeRead,
+          framework_in_practice_instruction_hidden: m.frameworkInPracticeInstructionHidden,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
+      if (error) {
+        console.error("user_onboarding_progress upsert failed:", error.message, error);
+      }
+    },
+    [onboardingProgressHydrated]
+  );
+
+  const onFrameworkOverviewReadChange = useCallback(
+    (v: boolean) => {
+      setFrameworkOverviewRead(v);
+      if (!v) {
+        // Unchecking Overview re-locks In Practice and clears downstream framework steps for a coherent state.
+        setFrameworkInPracticeRead(false);
+        setFrameworkOverviewInstructionHidden(false);
+        setFrameworkInPracticeInstructionHidden(false);
+        void persistOnboardingProgress({
+          frameworkOverviewRead: false,
+          frameworkInPracticeRead: false,
+          frameworkOverviewInstructionHidden: false,
+          frameworkInPracticeInstructionHidden: false,
+        });
+      } else {
+        void persistOnboardingProgress({ frameworkOverviewRead: true });
+      }
+    },
+    [persistOnboardingProgress]
+  );
+  const onFrameworkOverviewInstructionHiddenChange = useCallback(
+    (v: boolean) => {
+      setFrameworkOverviewInstructionHidden(v);
+      void persistOnboardingProgress({ frameworkOverviewInstructionHidden: v });
+    },
+    [persistOnboardingProgress]
+  );
+  const onFrameworkInPracticeReadChange = useCallback(
+    (v: boolean) => {
+      setFrameworkInPracticeRead(v);
+      void persistOnboardingProgress({ frameworkInPracticeRead: v });
+    },
+    [persistOnboardingProgress]
+  );
+  const onFrameworkInPracticeInstructionHiddenChange = useCallback(
+    (v: boolean) => {
+      setFrameworkInPracticeInstructionHidden(v);
+      void persistOnboardingProgress({ frameworkInPracticeInstructionHidden: v });
+    },
+    [persistOnboardingProgress]
+  );
+
+  const notifyNavigationLocked = useCallback(() => {
+    if (!isOrientationNavigationLocked() || !onboardingProgressHydrated) return;
+    setOrientationGateMessageOpen(true);
+  }, [onboardingProgressHydrated]);
 
   const EDIT_LINKS_SEEN_STORAGE_KEY = "compass-edit-links-seen";
   const [editLinksSeenByItem, setEditLinksSeenByItem] = useState<Record<string, boolean>>(() => {
@@ -1024,30 +1250,46 @@ export function DashboardClient() {
   };
 
   useEffect(() => {
+    let cancelled = false;
+    setOnboardingProgressHydrated(false);
     setLoadError(null);
     const supabase = createClient();
     (async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
+          setOnboardingProgressHydrated(false);
           router.replace("/auth/login?next=/dashboard");
           setLoading(false);
           return;
         }
-        setAuthUserId(user.id);
-        onboardingProgressHydratedRef.current = false;
-        const { data: onboardingRow } = await supabase
+        if (cancelled) return;
+        const { data: onboardingRow, error: onboardingLoadError } = await supabase
           .from("user_onboarding_progress")
           .select(
             "framework_overview_read, framework_overview_instruction_hidden, framework_in_practice_read, framework_in_practice_instruction_hidden"
           )
           .eq("user_id", user.id)
           .maybeSingle();
-        setFrameworkOverviewRead(!!onboardingRow?.framework_overview_read);
-        setFrameworkOverviewInstructionHidden(!!onboardingRow?.framework_overview_instruction_hidden);
-        setFrameworkInPracticeRead(!!onboardingRow?.framework_in_practice_read);
-        setFrameworkInPracticeInstructionHidden(!!onboardingRow?.framework_in_practice_instruction_hidden);
-        onboardingProgressHydratedRef.current = true;
+        if (onboardingLoadError) {
+          console.error("user_onboarding_progress load error:", onboardingLoadError.message, onboardingLoadError);
+          // Do not hydrate or apply defaults: that would enable upserts and could overwrite real DB values
+          // while the SELECT is failing (e.g. missing columns until migration 0004 is applied).
+          if (!cancelled) {
+            setLoadError(
+              (prev) =>
+                prev ??
+                `Could not load saved orientation progress (${onboardingLoadError.message}). Run Supabase migrations for user_onboarding_progress (including 00004).`
+            );
+          }
+        } else if (!cancelled) {
+          setFrameworkOverviewRead(!!onboardingRow?.framework_overview_read);
+          setFrameworkOverviewInstructionHidden(!!onboardingRow?.framework_overview_instruction_hidden);
+          setFrameworkInPracticeRead(!!onboardingRow?.framework_in_practice_read);
+          setFrameworkInPracticeInstructionHidden(!!onboardingRow?.framework_in_practice_instruction_hidden);
+          setOnboardingProgressHydrated(true);
+        }
+        if (cancelled) return;
         const { data: itemsRows } = await supabase
           .from("module_items")
           .select("id, module_id, name, sort_order, parent_item_id")
@@ -1061,6 +1303,8 @@ export function DashboardClient() {
           .from("item_principle_content")
           .select("item_id, principle_id, content, updated_at")
           .eq("user_id", user.id);
+
+        if (cancelled) return;
 
         const itemsByModule: Record<string, ModuleItem[]> = {
           "life-roles": [],
@@ -1153,6 +1397,7 @@ export function DashboardClient() {
             if (r.updated_at) itemUpdatedAt[key] = r.updated_at;
           }
         });
+        if (cancelled) return;
         setItemPrincipleContentState(itemContent);
         setItemPrincipleUpdatedAtState(itemUpdatedAt);
       } catch (e) {
@@ -1160,57 +1405,28 @@ export function DashboardClient() {
         setLoadError(message);
         console.error("Dashboard load error:", e);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   // Only re-fetch on explicit retry (loadKey), not on route param changes.
   // Keeping `router` out of the deps avoids a visible loading flash when navigating `/dashboard/[id]`.
   }, [loadKey]);
 
   useEffect(() => {
-    if (!authUserId || !onboardingProgressHydratedRef.current) return;
-    const supabase = createClient();
-    (async () => {
-      await supabase
-        .from("user_onboarding_progress")
-        .upsert(
-          {
-            user_id: authUserId,
-            framework_overview_read: frameworkOverviewRead,
-            framework_overview_instruction_hidden: frameworkOverviewInstructionHidden,
-            framework_in_practice_read: frameworkInPracticeRead,
-            framework_in_practice_instruction_hidden: frameworkInPracticeInstructionHidden,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id" }
-        );
-    })();
-  }, [
-    authUserId,
-    frameworkOverviewRead,
-    frameworkOverviewInstructionHidden,
-    frameworkInPracticeRead,
-    frameworkInPracticeInstructionHidden,
-  ]);
-
-  const DASHBOARD_INFO_STORAGE_KEY = "compass-dashboard-info";
-  const DASHBOARD_INFO_MAX_AUTO_OPENS = 4;
-
-  useEffect(() => {
-    if (loading || typeof window === "undefined") return;
-    const raw = localStorage.getItem(DASHBOARD_INFO_STORAGE_KEY);
-    const data = raw ? JSON.parse(raw) : { dismissed: false, autoOpenCount: 0 };
-    if (data.dismissed || (data.autoOpenCount ?? 0) >= DASHBOARD_INFO_MAX_AUTO_OPENS) return;
-    const t = setTimeout(() => {
-      setDashboardInfoDontShowAgain(false);
-      setShowDashboardInfo(true);
-      localStorage.setItem(
-        DASHBOARD_INFO_STORAGE_KEY,
-        JSON.stringify({ ...data, autoOpenCount: (data.autoOpenCount ?? 0) + 1 })
-      );
-    }, 400);
+    if (typeof window === "undefined") return;
+    if (loading) return;
+    if (!onboardingProgressHydrated) return;
+    const { frameworkOverviewRead: o, frameworkInPracticeRead: i } = onboardingMirrorRef.current;
+    if (isOrientationWelcomeLightboxComplete(o, i)) return;
+    if (routeItemId) return;
+    if (welcomeOrientationLightboxAutoOpenedRef.current) return;
+    welcomeOrientationLightboxAutoOpenedRef.current = true;
+    const t = setTimeout(() => setShowDashboardInfo(true), 400);
     return () => clearTimeout(t);
-  }, [loading]);
+  }, [loading, onboardingProgressHydrated, routeItemId, loadKey]);
 
   const setItemPrincipleContent = (moduleId: string, itemName: string, principle: string, content: string) => {
     const key = `${moduleId}|${itemName}|${principle}`;
@@ -1317,6 +1533,15 @@ export function DashboardClient() {
   useEffect(() => {
     if (loading) return;
 
+    if (isOrientationNavigationLocked()) {
+      if (routeItemId) {
+        router.replace("/dashboard");
+      }
+      setRightPanel((p) => (p.type !== "dashboard" ? { type: "dashboard" } : p));
+      setEditedName("");
+      return;
+    }
+
     if (!routeItemId) {
       if (rightPanel.type !== "dashboard") {
         setRightPanel({ type: "dashboard" });
@@ -1353,7 +1578,7 @@ export function DashboardClient() {
 
     setRightPanel({ type: "item-detail", item: foundItem.name, moduleId: foundItem.moduleId, mode });
     setEditedName(foundItem.name);
-  }, [routeItemId, loading, moduleItems, links, editLinksSeenByItem]);
+  }, [routeItemId, loading, moduleItems, links, editLinksSeenByItem, router]);
 
   // Let the computed title take over as soon as the URL changes.
   useEffect(() => {
@@ -1361,6 +1586,10 @@ export function DashboardClient() {
   }, [pathname]);
 
   const handleItemClick = (item: string, moduleId: string) => {
+    if (isOrientationNavigationLocked()) {
+      notifyNavigationLocked();
+      return;
+    }
     const key = editLinksItemKey(moduleId, item);
     const itemId = getItemId(moduleId, item);
     const mode =
@@ -1542,7 +1771,7 @@ export function DashboardClient() {
 
   const moduleIdToTypeLabel = (moduleId: string) => {
     if (moduleId === "life-roles") return "Life Role";
-    if (moduleId === "shared-growth") return "Shared Growth";
+    if (moduleId === "shared-growth") return "Connections";
     if (moduleId === "transformations") return "Transformation";
     if (moduleId === "wants") return "Want";
     if (moduleId === "situations") return "Situation";
@@ -1779,6 +2008,16 @@ export function DashboardClient() {
 
   const showFullPlan = rightPanel.type === "item-detail" && PRINCIPLE_CONTENT_MODULES.includes(rightPanel.moduleId);
 
+  const navigationLocked = isOrientationNavigationLocked();
+
+  const continueOrientationFromGateMessage = useCallback(() => {
+    const tab: "overview" | "in-practice" =
+      !frameworkOverviewRead ? "overview" : !frameworkInPracticeRead ? "in-practice" : "overview";
+    setOpenCompassFrameworkTab(tab);
+    setOpenCompassFrameworkTrigger((n) => n + 1);
+    setOrientationGateMessageOpen(false);
+  }, [frameworkOverviewRead, frameworkInPracticeRead]);
+
   if (loading) {
     return (
       <main className="min-h-screen bg-[#0b0b0c] flex items-center justify-center">
@@ -1832,7 +2071,7 @@ export function DashboardClient() {
         </h1>
         <button
           type="button"
-          onClick={() => { setDashboardInfoDontShowAgain(false); setShowDashboardInfo(true); }}
+          onClick={() => setShowDashboardInfo(true)}
           className="shrink-0 w-[15px] h-[15px] rounded-full border border-white/40 bg-white text-black flex items-center justify-center text-[10px] font-semibold leading-none hover:bg-white/90"
           aria-label="More information"
         >
@@ -1860,6 +2099,8 @@ export function DashboardClient() {
       <div className="flex-none flex items-center justify-center lg:min-w-0">
         <div className="w-full max-w-full flex justify-center">
           <Compass
+            navigationLocked={navigationLocked}
+            onNavigationLockedInteract={notifyNavigationLocked}
             activePrincipleItem={rightPanel.type === "item-detail" && PRINCIPLE_CONTENT_MODULES.includes(rightPanel.moduleId) ? { moduleId: rightPanel.moduleId, name: rightPanel.item } : null}
             itemPrincipleContent={itemPrincipleContent}
             itemPrincipleUpdatedAt={itemPrincipleUpdatedAt}
@@ -1867,14 +2108,15 @@ export function DashboardClient() {
             openPrincipleId={openPrincipleId}
             onPrincipleLightboxClose={() => setOpenPrincipleId(null)}
             openCompassFrameworkTrigger={openCompassFrameworkTrigger}
+            openCompassFrameworkInitialTab={openCompassFrameworkTab}
             frameworkOverviewRead={frameworkOverviewRead}
-            onFrameworkOverviewReadChange={setFrameworkOverviewRead}
+            onFrameworkOverviewReadChange={onFrameworkOverviewReadChange}
             frameworkOverviewInstructionHidden={frameworkOverviewInstructionHidden}
-            onFrameworkOverviewInstructionHiddenChange={setFrameworkOverviewInstructionHidden}
+            onFrameworkOverviewInstructionHiddenChange={onFrameworkOverviewInstructionHiddenChange}
             frameworkInPracticeRead={frameworkInPracticeRead}
-            onFrameworkInPracticeReadChange={setFrameworkInPracticeRead}
+            onFrameworkInPracticeReadChange={onFrameworkInPracticeReadChange}
             frameworkInPracticeInstructionHidden={frameworkInPracticeInstructionHidden}
-            onFrameworkInPracticeInstructionHiddenChange={setFrameworkInPracticeInstructionHidden}
+            onFrameworkInPracticeInstructionHiddenChange={onFrameworkInPracticeInstructionHiddenChange}
             onAddSituation={() => {
               setOpenPrincipleId(null);
               setModulesTab("work");
@@ -1894,25 +2136,78 @@ export function DashboardClient() {
       <div className="flex-none flex flex-col justify-start pt-6 lg:pt-0 w-full lg:w-[800px]">
         {rightPanel.type === "dashboard" && (
           <>
-            <div className="flex border-b border-white/20 mb-4" role="tablist" aria-label="Module views">
-              {MODULES_TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={modulesTab === tab.id}
-                  onClick={() => setModulesTab(tab.id)}
-                  className={`flex-1 min-w-0 px-2 py-2.5 font-semibold transition-colors border-b-2 -mb-px ${
-                    modulesTab === tab.id
-                      ? "text-white border-white/80"
-                      : "text-white/60 border-transparent hover:text-white/80"
-                  }`}
-                style={{ fontSize: "clamp(18px, 2.5vw, 22px)" }}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            <div className="relative">
+            <div
+              className="flex flex-wrap items-end gap-5 border-b-2 border-white/15 pb-1.5 mb-4"
+              role="tablist"
+              aria-label="Module views"
+            >
+              {MODULES_TABS.map((tab) => {
+                const selected = modulesTab === tab.id;
+                const tabsLocked = navigationLocked;
+                const baseStyle: CSSProperties = {
+                  borderRadius: "10px 10px 0 0",
+                  fontSize: "clamp(12px, 1.65vw, 16px)",
+                  fontWeight: selected ? 700 : 600,
+                  padding: "7px 12px",
+                  marginBottom: -2,
+                  flex: "1 1 0",
+                  minWidth: 0,
+                  lineHeight: 1.25,
+                  textAlign: "center",
+                };
+                if (tabsLocked) {
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      disabled
+                      aria-selected={selected}
+                      aria-disabled
+                      title="Complete orientation to unlock modules"
+                      className="border-0 font-inherit transition-colors"
+                      style={{
+                        ...baseStyle,
+                        background: "rgba(255,255,255,0.02)",
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        borderBottom: selected
+                          ? "2px solid #0b0b0c"
+                          : "1px solid rgba(255,255,255,0.12)",
+                        color: "rgba(255,255,255,0.45)",
+                        cursor: "not-allowed",
+                      }}
+                    >
+                      🔒 {tab.label}
+                    </button>
+                  );
+                }
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setModulesTab(tab.id)}
+                    className="border-0 font-inherit transition-colors"
+                    style={{
+                      ...baseStyle,
+                      background: selected ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.22)",
+                      borderBottom: selected ? "2px solid #0b0b0c" : "1px solid rgba(255,255,255,0.22)",
+                      color: selected ? "#fff" : "rgba(255,255,255,0.72)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
+            <div
+              className={navigationLocked ? "pointer-events-none select-none opacity-40" : ""}
+              aria-hidden={navigationLocked}
+            >
             <div className="flex flex-col gap-4">
               {(MODULES_TABS.find((t) => t.id === modulesTab)?.moduleIds ?? []).map((moduleId) => {
                 const m = MODULES.find((mod) => mod.id === moduleId);
@@ -1955,6 +2250,16 @@ export function DashboardClient() {
                 );
               })}
             </div>
+            </div>
+            {navigationLocked && onboardingProgressHydrated ? (
+              <button
+                type="button"
+                className="absolute inset-0 z-10 cursor-pointer rounded-lg bg-transparent p-0 border-0"
+                aria-label="Modules unlock after orientation. Click for details."
+                onClick={notifyNavigationLocked}
+              />
+            ) : null}
+            </div>
           </>
         )}
 
@@ -1962,7 +2267,7 @@ export function DashboardClient() {
           const moduleId = rightPanel.moduleId;
           const moduleTitles: Record<string, string> = {
             "life-roles": "Life Role",
-            "shared-growth": "Shared Growth",
+            "shared-growth": "Connections",
             situations: "Situation",
             wants: "Want",
             transformations: "Transformation",
@@ -2175,7 +2480,7 @@ export function DashboardClient() {
                               </button>
                               <div className="mt-1.5 pl-0 text-sm text-white/70 space-y-0.5">
                                 {lr.length > 0 && <div>Connected Life Roles: {lr.join(", ")}</div>}
-                                {sg.length > 0 && <div>Shared Growth: {sg.join(", ")}</div>}
+                                {sg.length > 0 && <div>Connections: {sg.join(", ")}</div>}
                               </div>
                             </li>
                           );
@@ -2565,7 +2870,7 @@ export function DashboardClient() {
                                 <button type="button" onClick={() => handleItemClick(name, moduleId)} className="text-left text-white/95 font-medium hover:text-white hover:underline">{name}</button>
                                 <div className="mt-1.5 pl-0 text-sm text-white/70 space-y-0.5">
                                   {lr.length > 0 && <div>Connected Life Roles: {lr.join(", ")}</div>}
-                                  {sg.length > 0 && <div>Shared Growth: {sg.join(", ")}</div>}
+                                  {sg.length > 0 && <div>Connections: {sg.join(", ")}</div>}
                                 </div>
                               </li>
                             );
@@ -2597,44 +2902,32 @@ export function DashboardClient() {
 
       {showDashboardInfo && (
         <Lightbox
-          title={DASHBOARD_INFO.title}
-          onClose={() => {
-            if (dashboardInfoDontShowAgain && typeof window !== "undefined") {
-              const raw = localStorage.getItem(DASHBOARD_INFO_STORAGE_KEY);
-              const data = raw ? JSON.parse(raw) : { dismissed: false, autoOpenCount: 0 };
-              localStorage.setItem(DASHBOARD_INFO_STORAGE_KEY, JSON.stringify({ ...data, dismissed: true }));
-            }
-            setShowDashboardInfo(false);
-          }}
+          title={
+            frameworkOverviewRead ? "Welcome back to the Compass" : "Welcome to the Compass"
+          }
+          onClose={() => setShowDashboardInfo(false)}
           maxWidth={720}
         >
-          {renderInfoBlocks(DASHBOARD_INFO.blocks)}
-          <p className="m-0 mt-6 text-[17px] text-white/90">
-            <button
-              type="button"
-              onClick={() => {
-                setShowDashboardInfo(false);
-                setOpenCompassFrameworkTrigger((t) => t + 1);
-              }}
-              className="border-none bg-transparent p-0 text-inherit font-medium text-white/95 hover:text-white underline underline-offset-2 cursor-pointer"
-            >
-              Explore the Compass Framework info icon now →
-            </button>
-          </p>
-          <p className="m-0 mt-6 text-white/90 italic">
-            This app is a companion to Wayfinder — a book about navigating life&apos;s turning points with agency. The framework works either way.
-          </p>
-          <div className="mt-6 pt-4 border-t border-white/12 flex items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-white/70 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={dashboardInfoDontShowAgain}
-                onChange={(e) => setDashboardInfoDontShowAgain(e.target.checked)}
-                className="rounded border-white/30"
-              />
-              Don&apos;t show this again automatically
-            </label>
-          </div>
+          <WelcomeOrientationLightboxBody
+            phase={frameworkOverviewRead ? "welcomeBack" : "welcome"}
+            frameworkOverviewRead={frameworkOverviewRead}
+            frameworkInPracticeRead={frameworkInPracticeRead}
+            onOpenFramework={(tab) => {
+              setShowDashboardInfo(false);
+              setOpenCompassFrameworkTab(tab);
+              setOpenCompassFrameworkTrigger((t) => t + 1);
+            }}
+          />
+        </Lightbox>
+      )}
+
+      {orientationGateMessageOpen && navigationLocked && onboardingProgressHydrated && (
+        <Lightbox title="Continue orientation" onClose={() => setOrientationGateMessageOpen(false)} maxWidth={640}>
+          <OrientationGateDialogContent
+            frameworkOverviewRead={frameworkOverviewRead}
+            frameworkInPracticeRead={frameworkInPracticeRead}
+            onContinue={continueOrientationFromGateMessage}
+          />
         </Lightbox>
       )}
 

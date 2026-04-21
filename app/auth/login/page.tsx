@@ -52,13 +52,20 @@ function LoginForm() {
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: `${location.origin}/auth/callback` },
         });
         if (error) throw error;
-        setMessage({ type: "success", text: "Check your email for the confirmation link." });
+        if (data.session) {
+          const next =
+            typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") ?? "/dashboard" : "/dashboard";
+          router.push(next);
+          router.refresh();
+          return;
+        }
+        // When sign-up returns no session (e.g. email confirmation required), add user-facing copy here if you enable that flow.
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;

@@ -15,17 +15,7 @@ export type InfoBlock =
 
 export type InfoSection = { title: string; blocks: InfoBlock[] };
 
-export const DASHBOARD_INFO: InfoSection = {
-  title: "My Compass Dashboard",
-  blocks: [
-    { type: "p", text: "Welcome to The Compass", className: "m-0 mb-2 font-semibold text-white/95" },
-    { type: "p", text: "You now have access to a tool for moving the most meaningful things in your life forward — with more clarity, intention, and agency than navigating them alone." },
-    { type: "p", text: "Before you start, there's a short orientation worth completing. The Compass is built on a mental model that makes everything in the app significantly more powerful once it's internalized. It won't take long — but approaching it in the right order matters." },
-    { type: "p", text: "Follow the sequence, check each box as you go, and by the time you're done you'll have everything you need to start using the Compass the way it was designed to be used." },
-    { type: "p", text: "Start here:", className: "m-0 mt-3 font-semibold text-white/95" },
-    { type: "p", text: "Open the ⓘ icon next to Compass Framework in the top left of the graphic and read through the Overview and In Practice tabs." },
-  ],
-};
+/** Dashboard welcome / orientation lightbox copy lives in `DashboardClient` (two phases + progress). */
 
 export const LIFE_ROLES_INFO: InfoSection = {
   title: "Life Roles",
@@ -43,15 +33,15 @@ export const LIFE_ROLES_INFO: InfoSection = {
 };
 
 export const SHARED_GROWTH_INFO: InfoSection = {
-  title: "Shared Growth",
+  title: "Connections",
   blocks: [
-    { type: "p", text: "Shared Growth represents the people whose direction is meaningfully connected to yours." },
+    { type: "p", text: "Connections represents the people whose direction is meaningfully connected to yours." },
     { type: "p", text: "This is not a contact list. It is not a social graph." },
     { type: "p", text: "Only add individuals or groups whose growth, decisions, and trajectory are intertwined with your own — people where responsibility flows both ways." },
     { type: "p", text: "A relationship belongs here when:" },
     { type: "ul", items: ["It has enduring relevance", "Your choices affect one another", "You intend to invest in the relationship over time"] },
     { type: "p", text: "If the connection is temporary, purely transactional, or requires no ongoing coordination, it does not belong here." },
-    { type: "p", text: "Shared Growth allows you to apply the Compass relationally — to reflect not only on how you are operating, but how you are aligning, supporting, or building alongside others." },
+    { type: "p", text: "Connections lets you apply the Compass relationally — to reflect not only on how you are operating, but how you are aligning, supporting, or building alongside others." },
     { type: "p", text: "Start with a small number of meaningful connections. What matters is not quantity, but weight." },
   ],
 };

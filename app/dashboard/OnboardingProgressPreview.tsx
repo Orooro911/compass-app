@@ -13,7 +13,6 @@ type DemoStep = {
 const DEMO_STEPS: DemoStep[] = [
   { label: "Framework", substeps: 2, completed: 0 },
   { label: "Postures", substeps: 4, completed: 0 },
-  { label: "Principles", substeps: 1, completed: 0 },
   { label: "Life Roles", substeps: 1, completed: 0 },
   { label: "Connections", substeps: 1, completed: 0 },
   { label: "Situations", substeps: 1, completed: 0 },
@@ -39,19 +38,43 @@ export function OnboardingProgressPreview({
 export function OnboardingProgressPreviewWithVariant({
   variant = "dashboard",
   frameworkCompletedSubsteps = 0,
+  forceEmptyAll = false,
 }: {
-  variant?: "dashboard" | "inline";
+  variant?: "dashboard" | "inline" | "lightbox";
   frameworkCompletedSubsteps?: number;
+  /** When true, every segment is empty (initial welcome before any checkboxes). */
+  forceEmptyAll?: boolean;
 }) {
   const isInline = variant === "inline";
+  const isLightbox = variant === "lightbox";
   const frameworkCompleted = Math.max(0, Math.min(2, frameworkCompletedSubsteps));
-  const steps: DemoStep[] = [{ ...DEMO_STEPS[0], completed: frameworkCompleted }, ...DEMO_STEPS.slice(1)];
+  const steps: DemoStep[] = forceEmptyAll
+    ? DEMO_STEPS.map((s) => ({ ...s, completed: 0 }))
+    : [{ ...DEMO_STEPS[0], completed: frameworkCompleted }, ...DEMO_STEPS.slice(1)];
   return (
-    <div className={`${isInline ? "w-max shrink-0 -mt-3" : "w-max max-w-[calc(100vw-2rem)] mx-auto mb-3 lg:mb-5 shrink-0 px-1"}`}>
+    <div
+      className={`${isInline ? "w-max shrink-0 -mt-3" : isLightbox ? "w-full max-w-full mx-auto" : "w-max max-w-[calc(100vw-2rem)] mx-auto mb-3 lg:mb-5 shrink-0 px-1"}`}
+    >
       {!isInline ? (
-        <p className="m-0 mb-2 text-center text-[11px] uppercase tracking-[0.14em] text-white/45">
-          Orientation progress <span className="normal-case tracking-normal text-white/35">(preview — sample fills)</span>
-        </p>
+        <>
+          <p
+            className={`m-0 mb-2 text-center ${
+              isLightbox
+                ? "text-sm font-semibold tracking-tight text-white/90"
+                : "text-[11px] uppercase tracking-[0.14em] text-white/45"
+            }`}
+          >
+            Orientation Progress
+            {!isLightbox ? (
+              <span className="normal-case tracking-normal text-white/35"> (preview — sample fills)</span>
+            ) : null}
+          </p>
+          {isLightbox ? (
+            <p className="m-0 mb-2 text-center text-xs text-white/55">
+              Framework → Postures → Life Roles → Connections → Situations
+            </p>
+          ) : null}
+        </>
       ) : (
         <p className="m-0 mb-0 text-center text-[9px] uppercase tracking-[0.12em] text-white/45">
           Orientation progress
@@ -59,9 +82,9 @@ export function OnboardingProgressPreviewWithVariant({
       )}
 
       <div
-        className={`flex max-w-full flex-nowrap justify-center gap-1 sm:gap-1.5 rounded-lg border border-white/12 bg-white/[0.04] w-max ${isInline ? "p-1 sm:p-1.5 mt-0 mb-0" : "overflow-x-auto p-2 sm:p-2.5 mx-auto"}`}
+        className={`flex max-w-full flex-nowrap justify-center gap-1 sm:gap-1.5 rounded-lg border border-white/12 bg-white/[0.04] w-max ${isInline ? "p-1 sm:p-1.5 mt-0 mb-0" : isLightbox ? "overflow-x-auto p-2 sm:p-2.5 mx-auto" : "overflow-x-auto p-2 sm:p-2.5 mx-auto"}`}
         role="img"
-        aria-label="Sample orientation progress: six stages with partial completion in the first two"
+        aria-label="Orientation progress across Framework, Postures, Life Roles, Connections, and Situations"
       >
         {steps.flatMap((step, index) => {
           const pct = step.substeps > 0 ? Math.min(100, (step.completed / step.substeps) * 100) : 0;

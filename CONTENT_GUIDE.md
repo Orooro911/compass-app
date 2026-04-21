@@ -45,11 +45,11 @@ All text for the **My Compass Dashboard**, **Life Roles**, **Shared Growth**, **
 
 | File | What it controls |
 |------|------------------|
-| **`app/dashboard/infoContent.ts`** | Every paragraph, heading, and bullet list in the six “i” info lightboxes. |
+| **`app/dashboard/infoContent.ts`** | Paragraphs and lists in the module “i” info lightboxes (Life Roles, Connections, Situations, Wants, Transformations). |
 
 **How to edit:**  
 - Open `app/dashboard/infoContent.ts`.  
-- Find the section by name: `DASHBOARD_INFO`, `LIFE_ROLES_INFO`, `SHARED_GROWTH_INFO`, `SITUATIONS_INFO`, `WANTS_INFO`, `TRANSFORMATIONS_INFO`.  
+- Find the section by name: `LIFE_ROLES_INFO`, `SHARED_GROWTH_INFO`, `SITUATIONS_INFO`, `WANTS_INFO`, `TRANSFORMATIONS_INFO`. (Welcome / orientation intro copy for the dashboard lives in `app/dashboard/page.tsx` in `WelcomeOrientationLightboxBody`.)  
 - Edit only the **strings** inside `text: "..."` or `items: ["...", "..."]`.  
 - Don’t change `type: "p"`, `type: "h3"`, or `type: "ul"`; don’t add or remove blocks.  
 - Save the file. The app will hot-reload.

@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "The Compass",
-  description: "Your personal dashboard for life roles, shared growth, and meaningful situations.",
+  description: "Your personal dashboard for life roles, connections, and meaningful situations.",
 };
 
 export default function RootLayout({

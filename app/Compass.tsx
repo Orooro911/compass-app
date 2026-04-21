@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { ACHIEVER_OVERVIEW, ACHIEVER_IN_PRACTICE } from "./content/achieverRoleContent";
 import { FOLLOWER_IN_PRACTICE, FOLLOWER_OVERVIEW } from "./content/followerRoleContent";
 import { LEADER_IN_PRACTICE, LEADER_OVERVIEW } from "./content/leaderRoleContent";
@@ -144,6 +144,7 @@ function LightboxWithOverviewAndPractice({
   onOpenAchieverFromFrameworkOnboarding,
   maxWidth = 720,
   maxHeight = "85vh",
+  initialTab = "overview",
 }: {
   title: string;
   onClose: () => void;
@@ -161,14 +162,43 @@ function LightboxWithOverviewAndPractice({
   onOpenAchieverFromFrameworkOnboarding: () => void;
   maxWidth?: number;
   maxHeight?: string | number;
+  /** Tab to show when this lightbox instance mounts (remount via parent `key` when reopening). */
+  initialTab?: "overview" | "in-practice";
 }) {
-  const [tab, setTab] = useState<"overview" | "in-practice">("overview");
+  const [tab, setTab] = useState<"overview" | "in-practice">(initialTab);
   const inPracticeLocked = !frameworkOverviewRead;
   const contentScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (inPracticeLocked && tab === "in-practice") {
+      setTab("overview");
+    }
+  }, [inPracticeLocked, tab]);
+
+  useEffect(() => {
     contentScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
   }, [tab]);
+
+  // After checking "I've read…", the next-step line mounts below the fold; scroll so it’s visible.
+  // Runs after the tab scroll-to-top effect so switching tabs still ends at the right position when needed.
+  useEffect(() => {
+    const scroller = contentScrollRef.current;
+    if (!scroller) return;
+    const overviewNextVisible =
+      tab === "overview" && frameworkOverviewRead && !hideOverviewNextInstruction;
+    const inPracticeNextVisible =
+      tab === "in-practice" && frameworkInPracticeRead && !hideInPracticeNextInstruction;
+    if (!overviewNextVisible && !inPracticeNextVisible) return;
+    requestAnimationFrame(() => {
+      scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
+    });
+  }, [
+    tab,
+    frameworkOverviewRead,
+    hideOverviewNextInstruction,
+    frameworkInPracticeRead,
+    hideInPracticeNextInstruction,
+  ]);
 
   return (
     <Lightbox title={title} onClose={onClose} maxWidth={maxWidth} maxHeight={maxHeight}>
@@ -264,9 +294,10 @@ function LightboxWithOverviewAndPractice({
                 {frameworkOverviewRead && !hideOverviewNextInstruction ? (
                   <p
                     style={{
-                      margin: "8px 0 0",
-                      fontSize: 14,
-                      color: "rgba(255,255,255,0.78)",
+                      margin: "10px 0 0",
+                      fontSize: 17,
+                      fontWeight: 700,
+                      color: "rgba(255,255,255,0.92)",
                       lineHeight: 1.45,
                     }}
                   >
@@ -384,7 +415,7 @@ function PrincipleLightboxWithTabs({
   const [overviewExpanded, setOverviewExpanded] = useState(false);
   const [inPracticeExpanded, setInPracticeExpanded] = useState(false);
   const [applyExpanded, setApplyExpanded] = useState(false);
-  // Always show "In Action" so role-only contexts (e.g. Life Roles / Shared Growth) still have a place to look.
+  // Always show "In Action" so role-only contexts (e.g. Life Roles / Connections) still have a place to look.
   // When `hasApplyTab` is false, it renders read-only guidance (no editing).
   const tabs = [
     { id: "overview" as const, label: "Overview" },
@@ -1436,6 +1467,8 @@ type CompassProps = {
   itemPrincipleUpdatedAt?: Record<string, string>;
   /** When this value increments, the Compass Framework info lightbox opens (e.g. from dashboard CTA). */
   openCompassFrameworkTrigger?: number;
+  /** Tab to select when opening via `openCompassFrameworkTrigger` (Overview ⓘ always opens Overview). */
+  openCompassFrameworkInitialTab?: "overview" | "in-practice";
   /** Called when the Principle lightbox wants to start adding a Situation. */
   onAddSituation?: () => void;
   /** Persisted onboarding checkpoint: true once user checks "I've read the Overview." */
@@ -1450,6 +1483,10 @@ type CompassProps = {
   /** Hide Achiever next-step instruction after user leaves In Practice tab once. */
   frameworkInPracticeInstructionHidden?: boolean;
   onFrameworkInPracticeInstructionHiddenChange?: (value: boolean) => void;
+  /** When true, opening role / principle / level lightboxes from the SVG is disabled (rotation + Compass Framework ⓘ still work). */
+  navigationLocked?: boolean;
+  /** Called when the user activates a graphic control that would open role / principle / level content but navigation is locked. */
+  onNavigationLockedInteract?: () => void;
 };
 
 export default function Compass({
@@ -1464,6 +1501,7 @@ export default function Compass({
   openPrincipleId = null,
   onPrincipleLightboxClose,
   openCompassFrameworkTrigger,
+  openCompassFrameworkInitialTab = "overview",
   onAddSituation,
   frameworkOverviewRead,
   onFrameworkOverviewReadChange,
@@ -1473,6 +1511,8 @@ export default function Compass({
   onFrameworkInPracticeReadChange,
   frameworkInPracticeInstructionHidden,
   onFrameworkInPracticeInstructionHiddenChange,
+  navigationLocked = false,
+  onNavigationLockedInteract,
 }: CompassProps) {
   const [frameworkOverviewReadLocal, setFrameworkOverviewReadLocal] = useState(false);
   const [frameworkOverviewInstructionHiddenLocal, setFrameworkOverviewInstructionHiddenLocal] = useState(false);
@@ -1504,40 +1544,54 @@ export default function Compass({
   const [lightboxRole, setLightboxRole] = useState<Role | null>(null);
   const [lightboxPrinciple, setLightboxPrinciple] = useState<{ role: Role; principle: string } | null>(null);
   const [lightboxLevel, setLightboxLevel] = useState<{ role: Role; levelIndex: number } | null>(null);
+  const [frameworkLightboxKey, setFrameworkLightboxKey] = useState(0);
+  const [frameworkLightboxInitialTab, setFrameworkLightboxInitialTab] = useState<"overview" | "in-practice">("overview");
+
+  const openCompassFrameworkLightbox = useCallback((tab: "overview" | "in-practice") => {
+    setFrameworkLightboxInitialTab(tab);
+    setFrameworkLightboxKey((k) => k + 1);
+    setLightboxRole(null);
+    setLightboxPrinciple(null);
+    setLightboxLevel(null);
+    setLightboxCompassTitle(true);
+  }, []);
 
   useEffect(() => {
+    if (navigationLocked) return;
     if (openPrincipleId && effectiveActiveKey) {
       setLightboxCompassTitle(false);
       setLightboxRole(null);
       setLightboxLevel(null);
       setLightboxPrinciple({ role: "Achiever", principle: openPrincipleId });
     }
-  }, [openPrincipleId, effectiveActiveKey]);
+  }, [openPrincipleId, effectiveActiveKey, navigationLocked]);
 
   const openCompassFrameworkTriggerPrev = useRef(0);
   useEffect(() => {
     if (openCompassFrameworkTrigger != null && openCompassFrameworkTrigger > openCompassFrameworkTriggerPrev.current) {
       openCompassFrameworkTriggerPrev.current = openCompassFrameworkTrigger;
-      setLightboxRole(null);
-      setLightboxPrinciple(null);
-      setLightboxLevel(null);
-      setLightboxCompassTitle(true);
+      openCompassFrameworkLightbox(openCompassFrameworkInitialTab);
     }
-  }, [openCompassFrameworkTrigger]);
+  }, [openCompassFrameworkTrigger, openCompassFrameworkInitialTab, openCompassFrameworkLightbox]);
 
   const openCompassTitleLightbox = () => {
-    setLightboxRole(null);
-    setLightboxPrinciple(null);
-    setLightboxLevel(null);
-    setLightboxCompassTitle(true);
+    openCompassFrameworkLightbox("overview");
   };
   const openRoleLightbox = (role: Role) => {
+    if (navigationLocked) {
+      onNavigationLockedInteract?.();
+      return;
+    }
     setLightboxCompassTitle(false);
     setLightboxPrinciple(null);
     setLightboxLevel(null);
     setLightboxRole(role);
   };
   const openPrincipleLightbox = (role: Role, principle: string) => {
+    if (navigationLocked) {
+      onNavigationLockedInteract?.();
+      return;
+    }
     const targetAngle = ROLE_ANGLE[role];
     setRotation((current) => shortestPathAngle(current, targetAngle));
     setLightboxCompassTitle(false);
@@ -1546,6 +1600,10 @@ export default function Compass({
     setLightboxPrinciple({ role, principle });
   };
   const openLevelLightbox = (role: Role, levelIndex: number) => {
+    if (navigationLocked) {
+      onNavigationLockedInteract?.();
+      return;
+    }
     const targetAngle = ROLE_ANGLE[role];
     setRotation((current) => shortestPathAngle(current, targetAngle));
     setLightboxCompassTitle(false);
@@ -1980,6 +2038,8 @@ export default function Compass({
 
     {lightboxCompassTitle && (
       <LightboxWithOverviewAndPractice
+        key={frameworkLightboxKey}
+        initialTab={frameworkLightboxInitialTab}
         title={COMPASS_FRAMEWORK.title}
         onClose={() => setLightboxCompassTitle(false)}
         overviewContent={renderBlocksToInline(COMPASS_FRAMEWORK.overview)}
